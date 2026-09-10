@@ -1,0 +1,291 @@
+<idea-plugin>
+    <id>com.github.hyxf.project-atlas-idea</id>
+    <name>Project Atlas</name>
+    <vendor email="xchao887@gmail.com" url="https://github.com/hyxf/project-atlas-idea">Project Atlas</vendor>
+
+    <description><![CDATA[
+    <h2>Project Atlas</h2>
+    <p>An IntelliJ IDEA productivity toolkit for AI code context, Git and Terminal workflows, and local project management.</p>
+    <br/>
+    <h3>Features:</h3>
+    <ul>
+      <li>Add/Remove files to AI context via right-click menu</li>
+      <li>Visualize context files in Tool Window</li>
+      <li>Support multi-module projects</li>
+      <li>Auto-sync file changes (rename, move, delete)</li>
+      <li>Export all context files as Markdown code package</li>
+      <li>Multiple Context Groups support</li>
+      <li>Manage, search, tag, and quickly open local projects</li>
+      <li>Common Git and Terminal workflow shortcuts</li>
+    </ul>
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>org.jetbrains.plugins.terminal</depends>
+    <depends>Git4Idea</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <notificationGroup
+                id="AICode"
+                displayType="BALLOON"
+                isLogByDefault="true"/>
+
+        <!-- Tool Window -->
+        <toolWindow
+                id="AICode Context"
+                anchor="right"
+                icon="/icons/aicode.svg"
+                factoryClass="com.aicode.feature.ai.ui.AICodeToolWindowFactory"/>
+
+        <!-- Project Service -->
+        <projectService
+                serviceImplementation="com.aicode.feature.ai.service.AICodeFileService"/>
+
+        <applicationService
+                serviceImplementation="com.aicode.feature.git.service.CommonCommitMessageService"/>
+
+        <applicationService
+                serviceImplementation="com.aicode.feature.terminal.service.CommonCommandService"/>
+
+        <!-- Project Manager feature -->
+        <applicationService
+                serviceImplementation="com.aicode.feature.projectmanager.infrastructure.persistence.ProjectJsonStore"/>
+        <applicationService
+                serviceInterface="com.aicode.feature.projectmanager.feature.project.ProjectRepository"
+                serviceImplementation="com.aicode.feature.projectmanager.infrastructure.persistence.PersistentProjectRepository"/>
+        <applicationService
+                serviceImplementation="com.aicode.feature.projectmanager.feature.project.ProjectManagerService"/>
+        <applicationService
+                serviceImplementation="com.aicode.feature.projectmanager.settings.ProjectManagerSettings"/>
+
+        <toolWindow
+                id="Project Atlas"
+                anchor="left"
+                icon="/icons/project/projectManager.svg"
+                factoryClass="com.aicode.feature.projectmanager.feature.ui.ProjectManagerToolWindowFactory"/>
+
+        <applicationConfigurable
+                id="com.aicode.settings.ProjectManager"
+                parentId="tools"
+                displayName="Project Atlas"
+                instance="com.aicode.feature.projectmanager.settings.ProjectManagerConfigurable"/>
+
+        <postStartupActivity
+                implementation="com.aicode.feature.projectmanager.feature.recent.ProjectOpenedActivity"/>
+        <welcomeTabFactory
+                id="AICodeProjectManagerWelcomeTab"
+                implementation="com.aicode.feature.projectmanager.feature.welcome.ProjectManagerWelcomeTabFactory"
+                order="after ProjectsWelcomeTab, before CustomizeWelcomeTab"/>
+        <notificationGroup
+                id="AICode.ProjectManager"
+                displayType="BALLOON"
+                isLogByDefault="true"/>
+
+        <applicationConfigurable
+                id="com.aicode.settings.CommonCommitMessages"
+                parentId="tools"
+                displayName="Common Commit Messages"
+                instance="com.aicode.feature.git.settings.CommonCommitMessageConfigurable"/>
+
+        <applicationConfigurable
+                id="com.aicode.settings.CommonCommands"
+                parentId="tools"
+                displayName="Common Commands"
+                instance="com.aicode.feature.terminal.settings.CommonCommandConfigurable"/>
+
+        <!-- Icon Provider -->
+        <iconProvider implementation="com.aicode.feature.ai.provider.AICodeIconProvider" order="first"/>
+
+        <!-- Editor Notification Provider -->
+        <editorNotificationProvider implementation="com.aicode.feature.ai.provider.AICodeEditorNotificationProvider"/>
+    </extensions>
+
+    <actions>
+        <group id="AICodeGroup" text="AI Code" popup="true" icon="icons/aicode.svg">
+            <!-- 1. Project View: Keep in CutCopyPaste group at the bottom -->
+            <add-to-group group-id="CutCopyPasteGroup" anchor="last"/>
+
+            <!-- 2. Editor Tab: Force to FIRST position (Top of the menu) -->
+            <add-to-group group-id="EditorTabPopupMenu" anchor="first"/>
+
+            <action id="com.aicode.action.AddToAICodeAction"
+                    class="com.aicode.feature.ai.action.AddToAICodeAction"
+                    text="Add to AICode"
+                    description="Add file to AICode context">
+                <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift Z"/>
+                <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift Z"/>
+            </action>
+
+            <action id="com.aicode.action.RemoveFromAICodeAction"
+                    class="com.aicode.feature.ai.action.RemoveFromAICodeAction"
+                    text="Remove from AICode"
+                    description="Remove file from AICode context">
+                <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift X"/>
+                <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift X"/>
+            </action>
+
+            <action id="com.aicode.action.CopyRelativePathAction"
+                    class="com.aicode.feature.ai.action.CopyRelativePathAction"
+                    text="Copy Relative Path"
+                    description="Copy path relative to the project root"/>
+
+            <action id="com.aicode.action.AddToTerminalAction"
+                    class="com.aicode.feature.ai.action.AddToTerminalAction"
+                    text="Add to Terminal"
+                    description="Insert the selected file path at the terminal cursor"/>
+
+            <action id="com.aicode.action.CopyMarkdownAction"
+                    class="com.aicode.feature.ai.action.CopyMarkdownAction"
+                    text="Copy as Markdown"
+                    description="Export AICode context as Markdown"
+                    use-shortcut-of="EditorCopy">
+            </action>
+        </group>
+
+        <group id="com.aicode.action.OpenGitRemoteGroup"
+               text="Git Tools"
+               icon="/icons/git.svg"
+               popup="true">
+            <add-to-group group-id="CutCopyPasteGroup"
+                          anchor="after"
+                          relative-to-action="AICodeGroup"/>
+            <add-to-group group-id="EditorTabPopupMenu"
+                          anchor="after"
+                          relative-to-action="AICodeGroup"/>
+
+            <action id="com.aicode.action.OpenGitRemoteAction"
+                    class="com.aicode.feature.git.action.OpenGitRemoteAction"
+                    text="Repository Home"
+                    description="Open the origin repository in a browser">
+                <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="shift meta H"/>
+            </action>
+            <action id="com.aicode.action.OpenGitRemoteBranchAction"
+                    class="com.aicode.feature.git.action.OpenGitRemoteBranchAction"
+                    text="Current Branch"
+                    description="Open the current branch on the origin repository">
+                <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="shift meta B"/>
+            </action>
+            <action id="com.aicode.action.OpenGitRemoteDirectoryAction"
+                    class="com.aicode.feature.git.action.OpenGitRemoteDirectoryAction"
+                    text="Selected Directory"
+                    description="Open the selected directory on the current origin branch"/>
+            <action id="com.aicode.action.OpenGitRemoteFileAction"
+                    class="com.aicode.feature.git.action.OpenGitRemoteFileAction"
+                    text="Selected File"
+                    description="Open the selected file on the current origin branch"/>
+            <separator/>
+            <action id="com.aicode.action.CopyGitRemoteUrlAction"
+                    class="com.aicode.feature.git.action.CopyGitRemoteUrlAction"
+                    text="Copy Remote URL"
+                    description="Copy the current Git repository origin URL"/>
+            <action id="com.aicode.action.CreateChangelogAction"
+                    class="com.aicode.feature.git.action.CreateChangelogAction"
+                    text="Create or Update CHANGELOG.md..."
+                    description="Create or update CHANGELOG.md from local Git tags and commits"/>
+            <action id="com.aicode.action.GitTagReleaseAction"
+                    class="com.aicode.feature.git.action.GitTagReleaseAction"
+                    text="Create Release Tag..."
+                    description="Create and push the next semantic version Git tag">
+                <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="shift meta J"/>
+            </action>
+        </group>
+
+        <group id="com.aicode.action.GitToolsMainMenuGroup"
+               text="Git Tools"
+               icon="/icons/git.svg"
+               popup="true">
+            <add-to-group group-id="Git.MainMenu" anchor="last"/>
+
+            <reference ref="com.aicode.action.OpenGitRemoteAction"/>
+            <reference ref="com.aicode.action.OpenGitRemoteBranchAction"/>
+            <separator/>
+            <reference ref="com.aicode.action.CopyGitRemoteUrlAction"/>
+            <reference ref="com.aicode.action.CreateChangelogAction"/>
+            <reference ref="com.aicode.action.GitTagReleaseAction"/>
+        </group>
+
+        <action id="com.aicode.action.SelectCommonCommitMessageAction"
+                class="com.aicode.feature.git.action.SelectCommonCommitMessageAction"
+                text="Common Commit Messages..."
+                description="Select a predefined commit message"
+                icon="/icons/commitMessage.svg">
+            <add-to-group group-id="Vcs.MessageActionGroup"
+                          anchor="after"
+                          relative-to-action="Vcs.ShowMessageHistory"/>
+        </action>
+
+        <action id="com.aicode.action.SelectCommonCommandAction"
+                class="com.aicode.feature.terminal.action.SelectCommonCommandAction"
+                text="Common Commands..."
+                description="Select a common command and insert it into Terminal"
+                icon="/icons/terminalCommand.svg">
+            <add-to-group group-id="ToolWindowContextMenu" anchor="last"/>
+            <add-to-group group-id="TerminalToolwindowActionGroup"
+                          anchor="after"
+                          relative-to-action="Terminal.NewTab"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift I"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift I"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift I"/>
+        </action>
+
+        <action id="com.aicode.action.AddCurrentCommandAction"
+                class="com.aicode.feature.terminal.action.AddCurrentCommandAction"
+                text="Add Current Command"
+                description="Add a command using clipboard text as the initial value"
+                icon="/icons/addTerminalCommand.svg">
+            <add-to-group group-id="TerminalToolwindowActionGroup"
+                          anchor="after"
+                          relative-to-action="com.aicode.action.SelectCommonCommandAction"/>
+        </action>
+
+        <group id="com.aicode.projectmanager.Actions" text="Project Atlas" popup="true">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <action id="com.aicode.projectmanager.OpenProject"
+                    class="com.aicode.feature.projectmanager.feature.action.QuickOpenProjectAction"
+                    text="Open Project..."/>
+            <action id="com.aicode.projectmanager.OpenProjectNewWindow"
+                    class="com.aicode.feature.projectmanager.feature.action.QuickOpenProjectInNewWindowAction"
+                    text="Open Project in New Window..."/>
+            <action id="com.aicode.projectmanager.SearchProjects"
+                    class="com.aicode.feature.projectmanager.feature.action.SearchProjectsAction"
+                    text="Search Projects"
+                    description="Search saved projects"
+                    icon="AllIcons.Actions.Search">
+                <keyboard-shortcut keymap="$default" first-keystroke="control shift P"/>
+                <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift P"/>
+            </action>
+            <action id="com.aicode.projectmanager.ToggleView"
+                    class="com.aicode.feature.projectmanager.feature.action.ToggleProjectViewAction"
+                    text="Switch Project View"
+                    description="Switch between list and tags views">
+                <keyboard-shortcut keymap="$default" first-keystroke="control shift T"/>
+                <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift T"/>
+            </action>
+            <separator/>
+            <action id="com.aicode.projectmanager.SaveCurrentProject"
+                    class="com.aicode.feature.projectmanager.feature.action.SaveCurrentProjectAction"
+                    text="Save Current Project..."/>
+            <action id="com.aicode.projectmanager.AddProject"
+                    class="com.aicode.feature.projectmanager.feature.action.AddProjectAction"
+                    text="Add Project..."/>
+            <action id="com.aicode.projectmanager.ImportProjects"
+                    class="com.aicode.feature.projectmanager.feature.action.ImportProjectsAction"
+                    text="Import Local Projects..."/>
+            <action id="com.aicode.projectmanager.RefreshProjects"
+                    class="com.aicode.feature.projectmanager.feature.action.RefreshProjectsAction"
+                    text="Refresh Projects"/>
+            <action id="com.aicode.projectmanager.OpenToolWindow"
+                    class="com.aicode.feature.projectmanager.feature.action.OpenProjectManagerAction"
+                    text="Show Project Atlas"
+                    description="Show or hide the Project Atlas tool window">
+                <keyboard-shortcut keymap="$default" first-keystroke="control shift COMMA"/>
+                <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift COMMA"/>
+            </action>
+        </group>
+    </actions>
+
+    <projectListeners>
+        <listener class="com.aicode.feature.ai.listener.AICodeFileListener"
+                  topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
+    </projectListeners>
+</idea-plugin>

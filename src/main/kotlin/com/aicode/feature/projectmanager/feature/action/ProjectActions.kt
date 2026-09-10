@@ -1,0 +1,218 @@
+package com.aicode.feature.projectmanager.feature.action
+
+import com.aicode.feature.projectmanager.ProjectManagerIcons
+import com.aicode.feature.projectmanager.feature.project.ProjectItem
+import com.aicode.feature.projectmanager.feature.project.ProjectManagerService
+import com.aicode.feature.projectmanager.feature.ui.ProjectEditDialog
+import com.aicode.feature.projectmanager.feature.ui.ProjectManagerPanel
+import com.aicode.feature.projectmanager.feature.ui.ProjectSearchDialog
+import com.aicode.feature.projectmanager.feature.ui.ProjectUiSupport
+import com.aicode.feature.projectmanager.feature.ui.ProjectImportUi
+import com.aicode.feature.projectmanager.feature.ui.ProjectPathStatusCache
+import com.aicode.feature.projectmanager.infrastructure.persistence.ProjectJsonStore
+import com.aicode.feature.projectmanager.settings.ProjectManagerSettings
+import com.intellij.openapi.actionSystem.ActionUpdateThread
+import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.components.service
+import com.intellij.openapi.project.DumbAware
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.wm.ToolWindowManager
+import com.intellij.ui.ColoredListCellRenderer
+import com.intellij.ui.JBColor
+import com.intellij.ui.SimpleTextAttributes
+import com.intellij.openapi.ui.popup.JBPopupFactory
+import java.nio.file.Path
+import javax.swing.JList
+
+abstract class ProjectManagerAction : AnAction(), DumbAware {
+    protected val service get() = service<ProjectManagerService>()
+    override fun getActionUpdateThread() = ActionUpdateThread.BGT
+
+    protected fun refresh(project: Project?) {
+        project ?: return
+        val content = ToolWindowManager.getInstance(project).getToolWindow("Project Atlas")
+            ?.contentManager?.contents?.firstOrNull()?.component
+        (content as? ProjectManagerPanel)?.refresh()
+    }
+}
+
+class SaveCurrentProjectAction : ProjectManagerAction() {
+    override fun update(e: AnActionEvent) { e.presentation.isEnabled = e.project?.basePath != null }
+    override fun actionPerformed(e: AnActionEvent) {
+        val project = e.project ?: return
+        val path = project.basePath?.let(Path::of) ?: return
+        val existing = service.findByPath(path)
+        val dialog = ProjectEditDialog(project, path, existing, allowPathSelection = false)
+        if (dialog.showAndGet()) ProjectUiSupport.runInBackground(project, "Save current project", {
+            service.saveProject(dialog.projectName, path, dialog.tags, dialog.favorite)
+            service.updateLastOpened(path)
+        }) { refresh(project) }
+    }
+}
+
+class AddProjectAction : ProjectManagerAction() {
+    override fun actionPerformed(e: AnActionEvent) {
+        val path = ProjectUiSupport.chooseDirectory(e.project) ?: return
+        if (service.findByPath(path) != null) {
+            ProjectUiSupport.report(e.project, "Add project", IllegalArgumentException("Project already exists"))
+            return
+        }
+        val dialog = ProjectEditDialog(e.project, path)
+        if (dialog.showAndGet()) ProjectUiSupport.runInBackground(e.project, "Add project", {
+            service.addProject(dialog.projectName, dialog.projectPath, dialog.tags, dialog.favorite)
+        }) { refresh(e.project) }
+    }
+}
+
+class ImportProjectsAction : ProjectManagerAction() {
+    override fun getActionUpdateThread() = ActionUpdateThread.EDT
+    override fun actionPerformed(e: AnActionEvent) {
+        val project = e.project ?: return
+        ProjectImportUi.show(project) { refresh(project) }
+    }
+}
+
+open class QuickOpenProjectAction(private val newWindow: Boolean = false) : ProjectManagerAction() {
+    override fun actionPerformed(e: AnActionEvent) {
+        ProjectUiSupport.runInBackground(e.project, "Load projects", {
+            service<ProjectJsonStore>().forceReload()
+            service.projects()
+        }) { projects -> showChooser(e, service.sortProjects(projects)) }
+    }
+
+    private fun showChooser(e: AnActionEvent, projects: List<ProjectItem>) {
+        if (projects.isEmpty()) {
+            ProjectUiSupport.notify(e.project, "No saved projects. Add or save a project first.", com.intellij.notification.NotificationType.INFORMATION)
+            return
+        }
+        JBPopupFactory.getInstance().createPopupChooserBuilder(projects)
+            .setTitle(if (newWindow) "Open Project in New Window" else "Open Project")
+            .setRenderer(object : ColoredListCellRenderer<ProjectItem>() {
+                override fun customizeCellRenderer(list: JList<out ProjectItem>, value: ProjectItem?, index: Int,
+                                                   selected: Boolean, hasFocus: Boolean) {
+                    value ?: return
+                    append(if (value.favorite) "★ ${value.name}" else value.name, SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
+                    if (ProjectPathStatusCache.isDirectory(value.path) == false) {
+                        append("  Missing", SimpleTextAttributes.ERROR_ATTRIBUTES)
+                    } else if (ProjectPathStatusCache.isDirectory(value.path) == null) {
+                        ProjectPathStatusCache.refresh(value.path) { list.repaint() }
+                    }
+                    val details = buildString {
+                        append("  ${value.path}")
+                        if (value.tags.isNotEmpty()) append("  ${value.tags.sorted().joinToString(" · ")}")
+                    }
+                    appendWithClipping(details) { component, graphics, availableWidth, text, _ ->
+                        val metrics = graphics.getFontMetrics(component.font)
+                        val ellipsis = "…"
+                        if (metrics.stringWidth(text) <= availableWidth) return@appendWithClipping text
+                        if (metrics.stringWidth(ellipsis) > availableWidth) return@appendWithClipping ""
+
+                        var low = 0
+                        var high = text.length
+                        while (low < high) {
+                            val middle = (low + high + 1) / 2
+                            if (metrics.stringWidth(text.substring(0, middle) + ellipsis) <= availableWidth) {
+                                low = middle
+                            } else {
+                                high = middle - 1
+                            }
+                        }
+                        text.substring(0, low).trimEnd() + ellipsis
+                    }
+                    iterator().apply {
+                        while (hasNext()) {
+                            next()
+                            if (!hasNext()) {
+                                setTextAttributes(SimpleTextAttributes(SimpleTextAttributes.STYLE_SMALLER, JBColor.GRAY))
+                            }
+                        }
+                    }
+                    toolTipText = buildString {
+                        append(value.name)
+                        append(" — ${value.path}")
+                        if (value.tags.isNotEmpty()) append(" — ${value.tags.sorted().joinToString(" · ")}")
+                    }
+                }
+            })
+            .setNamerForFiltering { "${it.name} ${it.path} ${it.tags.joinToString(" ")}" }
+            .setAdText("Enter: open  ·  Esc: cancel")
+            .setItemChosenCallback {
+                val current = e.project?.basePath?.let(Path::of)?.toAbsolutePath()?.normalize() == it.path.toAbsolutePath().normalize()
+                if (current) {
+                    ProjectUiSupport.notify(e.project, "${it.name} is already open.", com.intellij.notification.NotificationType.INFORMATION)
+                } else if (ProjectUiSupport.open(it, e.project, newWindow)) {
+                    ProjectUiSupport.runInBackground(e.project, "Update recent project", { service.updateLastOpened(it.path) })
+                }
+                refresh(e.project)
+            }.createPopup().showInFocusCenter()
+    }
+}
+
+class QuickOpenProjectInNewWindowAction : QuickOpenProjectAction(true)
+
+class SearchProjectsAction : ProjectManagerAction() {
+    override fun getActionUpdateThread() = ActionUpdateThread.EDT
+
+    override fun actionPerformed(e: AnActionEvent) {
+        val project = e.project ?: return
+        ProjectUiSupport.runInBackground(project, "Load projects", {
+            service<ProjectJsonStore>().forceReload()
+        }) {
+            ProjectSearchDialog(project) { item ->
+                val currentPath = project.basePath?.let(Path::of)?.toAbsolutePath()?.normalize()
+                if (currentPath == item.path.toAbsolutePath().normalize()) return@ProjectSearchDialog
+                val newWindow = service<ProjectManagerSettings>().state.defaultOpenMode ==
+                    ProjectManagerSettings.OpenMode.NEW_WINDOW
+                if (ProjectUiSupport.open(item, project, newWindow)) {
+                    ProjectUiSupport.runInBackground(project, "Update recent project", {
+                        service.updateLastOpened(item.path)
+                    }) { refresh(project) }
+                }
+            }.show()
+        }
+    }
+}
+
+class ToggleProjectViewAction : ProjectManagerAction() {
+    override fun actionPerformed(e: AnActionEvent) {
+        ProjectUiSupport.runInBackground(e.project, "Save view setting", {
+            val settings = service<ProjectManagerSettings>()
+            val nextView = if (settings.state.viewMode == ProjectManagerSettings.ViewMode.LIST) {
+                ProjectManagerSettings.ViewMode.TAGS
+            } else {
+                ProjectManagerSettings.ViewMode.LIST
+            }
+            settings.updateViewMode(nextView)
+        })
+    }
+
+    override fun update(e: AnActionEvent) {
+        val listView = service<ProjectManagerSettings>().state.viewMode == ProjectManagerSettings.ViewMode.LIST
+        e.presentation.icon = if (listView) ProjectManagerIcons.TagsView else ProjectManagerIcons.ListFiles
+        e.presentation.text = if (listView) "Switch to Tags View" else "Switch to List View"
+        e.presentation.description = e.presentation.text
+    }
+}
+
+class RefreshProjectsAction : ProjectManagerAction() {
+    override fun actionPerformed(e: AnActionEvent) = refresh(e.project)
+}
+
+class OpenProjectManagerAction : ProjectManagerAction() {
+    override fun actionPerformed(e: AnActionEvent) {
+        val project = e.project ?: return
+        val toolWindow = ToolWindowManager.getInstance(project).getToolWindow("Project Atlas") ?: return
+        if (toolWindow.isVisible) toolWindow.hide() else toolWindow.show()
+    }
+
+    override fun update(e: AnActionEvent) {
+        val toolWindow = e.project?.let { ToolWindowManager.getInstance(it).getToolWindow("Project Atlas") }
+        e.presentation.isEnabled = toolWindow != null
+        e.presentation.text = if (toolWindow?.isVisible == true) "Hide Project Atlas" else "Show Project Atlas"
+        e.presentation.description = "Show or hide the Project Atlas tool window"
+    }
+
+    override fun getActionUpdateThread() = ActionUpdateThread.EDT
+}
+
