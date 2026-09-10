@@ -31,7 +31,7 @@ abstract class ProjectManagerAction : AnAction(), DumbAware {
 
     protected fun refresh(project: Project?) {
         project ?: return
-        val content = ToolWindowManager.getInstance(project).getToolWindow("Project Atlas")
+        val content = ToolWindowManager.getInstance(project).getToolWindow("Project Atlas: Projects")
             ?.contentManager?.contents?.firstOrNull()?.component
         (content as? ProjectManagerPanel)?.refresh()
     }
@@ -202,12 +202,12 @@ class RefreshProjectsAction : ProjectManagerAction() {
 class OpenProjectManagerAction : ProjectManagerAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val toolWindow = ToolWindowManager.getInstance(project).getToolWindow("Project Atlas") ?: return
+        val toolWindow = ToolWindowManager.getInstance(project).getToolWindow("Project Atlas: Projects") ?: return
         if (toolWindow.isVisible) toolWindow.hide() else toolWindow.show()
     }
 
     override fun update(e: AnActionEvent) {
-        val toolWindow = e.project?.let { ToolWindowManager.getInstance(it).getToolWindow("Project Atlas") }
+        val toolWindow = e.project?.let { ToolWindowManager.getInstance(it).getToolWindow("Project Atlas: Projects") }
         e.presentation.isEnabled = toolWindow != null
         e.presentation.text = if (toolWindow?.isVisible == true) "Hide Project Atlas" else "Show Project Atlas"
         e.presentation.description = "Show or hide the Project Atlas tool window"
@@ -215,4 +215,3 @@ class OpenProjectManagerAction : ProjectManagerAction() {
 
     override fun getActionUpdateThread() = ActionUpdateThread.EDT
 }
-

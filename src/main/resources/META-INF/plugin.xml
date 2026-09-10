@@ -32,7 +32,7 @@
 
         <!-- Tool Window -->
         <toolWindow
-                id="AICode Context"
+                id="Project Atlas: AICode"
                 anchor="right"
                 icon="/icons/aicode.svg"
                 factoryClass="com.aicode.feature.ai.ui.AICodeToolWindowFactory"/>
@@ -59,7 +59,7 @@
                 serviceImplementation="com.aicode.feature.projectmanager.settings.ProjectManagerSettings"/>
 
         <toolWindow
-                id="Project Atlas"
+                id="Project Atlas: Projects"
                 anchor="left"
                 icon="/icons/project/projectManager.svg"
                 factoryClass="com.aicode.feature.projectmanager.feature.ui.ProjectManagerToolWindowFactory"/>
