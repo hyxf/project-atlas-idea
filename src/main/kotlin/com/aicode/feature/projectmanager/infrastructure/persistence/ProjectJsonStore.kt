@@ -232,7 +232,7 @@ class ProjectJsonStore() {
 
     companion object {
         const val CURRENT_SCHEMA_VERSION = 4
-        fun defaultFile(): Path = Path(System.getProperty("user.home"), ".project-manager", "project.json")
+        fun defaultFile(): Path = Path(System.getProperty("user.home"), ".project-atlas", "project.json")
     }
 }
 

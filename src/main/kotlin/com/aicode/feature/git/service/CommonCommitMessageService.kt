@@ -129,6 +129,6 @@ class CommonCommitMessageService(
             ApplicationManager.getApplication().getService(CommonCommitMessageService::class.java)
 
         fun defaultConfigPath(): Path =
-            Path.of(System.getProperty("user.home"), ".aicode", "gitmessage.json")
+            Path.of(System.getProperty("user.home"), ".project-atlas", "gitmessage.json")
     }
 }

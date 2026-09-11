@@ -100,6 +100,6 @@ class CommonCommandService(
         fun getInstance(): CommonCommandService =
             ApplicationManager.getApplication().getService(CommonCommandService::class.java)
 
-        fun defaultConfigPath(): Path = Path.of(System.getProperty("user.home"), ".aicode", "commoncmd.json")
+        fun defaultConfigPath(): Path = Path.of(System.getProperty("user.home"), ".project-atlas", "commoncmd.json")
     }
 }
