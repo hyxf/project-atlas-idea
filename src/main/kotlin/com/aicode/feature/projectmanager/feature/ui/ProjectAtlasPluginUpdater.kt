@@ -15,7 +15,6 @@ import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.updateSettings.impl.PluginDownloader
 import com.intellij.openapi.util.text.StringUtil
 
@@ -33,7 +32,7 @@ object ProjectAtlasPluginUpdater {
     private val pluginId = PluginId.getId(PLUGIN_ID)
 
     fun checkForUpdate(project: Project) {
-        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Checking Project Atlas Updates", true) {
+        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Checking for Project Atlas Updates", true) {
             private var result: CheckResult = CheckResult.Failed
 
             override fun run(indicator: ProgressIndicator) {
@@ -47,14 +46,15 @@ object ProjectAtlasPluginUpdater {
                 when (val currentResult = result) {
                     CheckResult.Latest -> NotificationGroupManager.getInstance()
                         .getNotificationGroup("AICode.ProjectManager")
-                        .createNotification("Project Atlas Update", "Project Atlas is already up to date.", NotificationType.INFORMATION)
+                        .createNotification("Project Atlas Is Up to Date", "You are running the latest version.", NotificationType.INFORMATION)
                         .notify(project)
 
                     is CheckResult.Available -> confirmAndInstall(project, currentResult)
-                    CheckResult.Failed -> Messages.showErrorDialog(
+                    CheckResult.Failed -> notify(
                         project,
-                        "Could not check for Project Atlas updates. Please check your network connection and try again.",
-                        "Project Atlas Update",
+                        "Update Check Failed",
+                        "Unable to reach the update service. Check your network connection and try again.",
+                        NotificationType.ERROR,
                     )
                 }
             }
@@ -78,25 +78,25 @@ object ProjectAtlasPluginUpdater {
     }
 
     private fun confirmAndInstall(project: Project, update: CheckResult.Available) {
-        val changeNotes = update.plugin.changeNotes?.trim().orEmpty().ifBlank { "No release notes were provided." }
+        val changeNotes = update.plugin.changeNotes?.trim().orEmpty().ifBlank { "No release notes are available for this version." }
         NotificationGroupManager.getInstance().getNotificationGroup("AICode.ProjectManager")
             .createNotification(
-                "Project Atlas Update Available",
-                "Current version: ${update.currentVersion}<br>" +
-                    "New version: ${update.plugin.version}<br><br>" +
-                    "${escapeForNotification(changeNotes)}<br><br>" +
-                    "Restart is required after installation.",
+                "A Project Atlas Update Is Available",
+                "Installed version: ${update.currentVersion}<br>" +
+                    "Available version: ${update.plugin.version}<br><br>" +
+                    "What's new:<br>${escapeForNotification(changeNotes)}<br><br>" +
+                    "Select Update Now to download and install. Restart the IDE to activate the update.",
                 NotificationType.INFORMATION,
             )
-            .addAction(NotificationAction.createSimpleExpiring("Update and Restart") {
+            .addAction(NotificationAction.createSimpleExpiring("Update Now") {
                 install(project, update.plugin)
             })
-            .addAction(NotificationAction.createSimpleExpiring("Cancel") {})
+            .addAction(NotificationAction.createSimpleExpiring("Not Now") {})
             .notify(project)
     }
 
     private fun install(project: Project, plugin: PluginNode) {
-        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Downloading Project Atlas Update", true) {
+        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Downloading and Installing Project Atlas Update", true) {
             private var installed = false
 
             override fun run(indicator: ProgressIndicator) {
@@ -111,29 +111,38 @@ object ProjectAtlasPluginUpdater {
 
             override fun onSuccess() {
                 if (!installed || project.isDisposed) {
-                    if (!project.isDisposed) Messages.showErrorDialog(
+                    if (!project.isDisposed) notify(
                         project,
-                        "The Project Atlas update could not be installed.",
-                        "Project Atlas Update",
+                        "Update Installation Failed",
+                        "Unable to download or prepare the update. Please try again later.",
+                        NotificationType.ERROR,
                     )
                     return
                 }
-                val restart = Messages.showYesNoDialog(
-                    project,
-                    "The Project Atlas update has been installed. Restart the IDE now to use the new version?",
-                    "Restart Required",
-                    "Restart Now",
-                    "Later",
-                    Messages.getInformationIcon(),
-                )
-                if (restart == Messages.YES) {
-                    (ApplicationManager.getApplication() as? ApplicationEx)?.restart(true)
-                }
+                NotificationGroupManager.getInstance().getNotificationGroup("AICode.ProjectManager")
+                    .createNotification(
+                        "Update Ready",
+                        "Project Atlas ${plugin.version} is ready. Restart the IDE to use the new version.",
+                        NotificationType.INFORMATION,
+                    )
+                    .addAction(NotificationAction.createSimpleExpiring("Restart Now") { restartIde() })
+                    .addAction(NotificationAction.createSimpleExpiring("Restart Later") {})
+                    .notify(project)
             }
         })
     }
 
     private fun currentIdeBuild() = ApplicationInfo.getInstance().build
+
+    private fun restartIde() {
+        (ApplicationManager.getApplication() as? ApplicationEx)?.restart(true)
+    }
+
+    private fun notify(project: Project, title: String, content: String, type: NotificationType) {
+        NotificationGroupManager.getInstance().getNotificationGroup("AICode.ProjectManager")
+            .createNotification(title, content, type)
+            .notify(project)
+    }
 
     private fun escapeForNotification(value: String): String = value
         .take(600)
