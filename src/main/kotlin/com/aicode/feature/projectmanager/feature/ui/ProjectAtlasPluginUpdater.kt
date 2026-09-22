@@ -1,9 +1,11 @@
 package com.aicode.feature.projectmanager.feature.ui
 
-import com.intellij.CommonBundle
 import com.intellij.ide.plugins.PluginNode
 import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.ide.plugins.RepositoryHelper
+import com.intellij.notification.NotificationAction
+import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ApplicationInfo
 import com.intellij.openapi.application.ex.ApplicationEx
@@ -43,11 +45,10 @@ object ProjectAtlasPluginUpdater {
             override fun onSuccess() {
                 if (project.isDisposed) return
                 when (val currentResult = result) {
-                    CheckResult.Latest -> Messages.showInfoMessage(
-                        project,
-                        "Project Atlas is already up to date.",
-                        "Project Atlas Update",
-                    )
+                    CheckResult.Latest -> NotificationGroupManager.getInstance()
+                        .getNotificationGroup("AICode.ProjectManager")
+                        .createNotification("Project Atlas Update", "Project Atlas is already up to date.", NotificationType.INFORMATION)
+                        .notify(project)
 
                     is CheckResult.Available -> confirmAndInstall(project, currentResult)
                     CheckResult.Failed -> Messages.showErrorDialog(
@@ -78,19 +79,20 @@ object ProjectAtlasPluginUpdater {
 
     private fun confirmAndInstall(project: Project, update: CheckResult.Available) {
         val changeNotes = update.plugin.changeNotes?.trim().orEmpty().ifBlank { "No release notes were provided." }
-        val choice = Messages.showYesNoDialog(
-            project,
-            "A new Project Atlas version is available.\n\n" +
-                "Current version: ${update.currentVersion}\n" +
-                "New version: ${update.plugin.version}\n\n" +
-                "What's new:\n$changeNotes\n\n" +
-                "Download and install the update? The IDE must restart before it takes effect.",
-            "Project Atlas Update Available",
-            "Update and Restart",
-            CommonBundle.getCancelButtonText(),
-            Messages.getQuestionIcon(),
-        )
-        if (choice == Messages.YES) install(project, update.plugin)
+        NotificationGroupManager.getInstance().getNotificationGroup("AICode.ProjectManager")
+            .createNotification(
+                "Project Atlas Update Available",
+                "Current version: ${update.currentVersion}<br>" +
+                    "New version: ${update.plugin.version}<br><br>" +
+                    "${escapeForNotification(changeNotes)}<br><br>" +
+                    "Restart is required after installation.",
+                NotificationType.INFORMATION,
+            )
+            .addAction(NotificationAction.createSimpleExpiring("Update and Restart") {
+                install(project, update.plugin)
+            })
+            .addAction(NotificationAction.createSimpleExpiring("Cancel") {})
+            .notify(project)
     }
 
     private fun install(project: Project, plugin: PluginNode) {
@@ -132,6 +134,13 @@ object ProjectAtlasPluginUpdater {
     }
 
     private fun currentIdeBuild() = ApplicationInfo.getInstance().build
+
+    private fun escapeForNotification(value: String): String = value
+        .take(600)
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\n", "<br>")
 
     private sealed interface CheckResult {
         data object Latest : CheckResult
