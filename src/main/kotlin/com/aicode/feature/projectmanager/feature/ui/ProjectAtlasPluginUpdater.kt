@@ -1,6 +1,6 @@
 package com.aicode.feature.projectmanager.feature.ui
 
-import com.intellij.ide.plugins.PluginNode
+import com.intellij.ide.plugins.IdeaPluginDescriptor
 import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.ide.plugins.RepositoryHelper
 import com.intellij.notification.NotificationAction
@@ -64,7 +64,7 @@ object ProjectAtlasPluginUpdater {
     private fun findUpdate(indicator: ProgressIndicator): CheckResult {
         val installed = PluginManagerCore.getPlugin(pluginId)
             ?: throw IllegalStateException("Project Atlas is not installed")
-        val latest = RepositoryHelper.loadPlugins(UPDATE_REPOSITORY_URL, currentIdeBuild(), indicator)
+        val latest = RepositoryHelper.loadPlugins(UPDATE_REPOSITORY_URL, indicator)
             .asSequence()
             .filter { it.pluginId == pluginId }
             .maxWithOrNull { left, right -> StringUtil.compareVersionNumbers(left.version, right.version) }
@@ -95,7 +95,7 @@ object ProjectAtlasPluginUpdater {
             .notify(project)
     }
 
-    private fun install(project: Project, plugin: PluginNode) {
+    private fun install(project: Project, plugin: IdeaPluginDescriptor) {
         ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Downloading and Installing Project Atlas Update", true) {
             private var installed = false
 
@@ -154,6 +154,6 @@ object ProjectAtlasPluginUpdater {
     private sealed interface CheckResult {
         data object Latest : CheckResult
         data object Failed : CheckResult
-        data class Available(val currentVersion: String, val plugin: PluginNode) : CheckResult
+        data class Available(val currentVersion: String, val plugin: IdeaPluginDescriptor) : CheckResult
     }
 }
