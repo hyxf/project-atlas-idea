@@ -3,7 +3,7 @@
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![IntelliJ Platform](https://img.shields.io/badge/platform-IntelliJ-orange.svg)
 
-一款 IntelliJ IDEA 效率插件，用于管理 AI 代码上下文、常用 Git/Terminal 操作和本地项目集合。
+一款 IntelliJ IDEA 效率插件，用于管理 AI 代码上下文、常用 Git/Terminal 操作和本地项目集合2。
 
 ---
 
