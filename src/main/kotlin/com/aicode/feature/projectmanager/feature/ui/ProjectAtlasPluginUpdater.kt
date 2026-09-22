@@ -11,12 +11,14 @@ import com.intellij.openapi.application.ApplicationInfo
 import com.intellij.openapi.application.ex.ApplicationEx
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.extensions.PluginId
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.updateSettings.impl.PluginDownloader
 import com.intellij.openapi.util.text.StringUtil
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Checks the Project Atlas custom plugin repository and delegates installation to the IDE.
@@ -30,15 +32,28 @@ object ProjectAtlasPluginUpdater {
 
     private val logger = Logger.getInstance(ProjectAtlasPluginUpdater::class.java)
     private val pluginId = PluginId.getId(PLUGIN_ID)
+    private val checkingForUpdate = AtomicBoolean(false)
+    private val installingUpdate = AtomicBoolean(false)
 
     fun checkForUpdate(project: Project) {
+        if (!checkingForUpdate.compareAndSet(false, true)) {
+            notify(project, "Update Check Already Running", "Project Atlas is already checking for updates.", NotificationType.INFORMATION)
+            return
+        }
         ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Checking for Project Atlas Updates", true) {
             private var result: CheckResult = CheckResult.Failed
 
             override fun run(indicator: ProgressIndicator) {
-                result = runCatching { findUpdate(indicator) }
-                    .onFailure { logger.warn("[ProjectAtlasUpdate] Failed to check for an update", it) }
-                    .getOrElse { CheckResult.Failed }
+                try {
+                    result = findUpdate(indicator)
+                } catch (exception: ProcessCanceledException) {
+                    throw exception
+                } catch (exception: Exception) {
+                    logger.warn("[ProjectAtlasUpdate] Failed to check for an update", exception)
+                    result = CheckResult.Failed
+                } finally {
+                    checkingForUpdate.set(false)
+                }
             }
 
             override fun onSuccess() {
@@ -50,6 +65,20 @@ object ProjectAtlasPluginUpdater {
                         .notify(project)
 
                     is CheckResult.Available -> confirmAndInstall(project, currentResult)
+                    CheckResult.NotFound -> notify(
+                        project,
+                        "Update Metadata Not Found",
+                        "The update service does not contain a Project Atlas entry.",
+                        NotificationType.ERROR,
+                    )
+
+                    CheckResult.InvalidMetadata -> notify(
+                        project,
+                        "Invalid Update Metadata",
+                        "The Project Atlas update entry does not contain a valid version.",
+                        NotificationType.ERROR,
+                    )
+
                     CheckResult.Failed -> notify(
                         project,
                         "Update Check Failed",
@@ -64,11 +93,16 @@ object ProjectAtlasPluginUpdater {
     private fun findUpdate(indicator: ProgressIndicator): CheckResult {
         val installed = PluginManagerCore.getPlugin(pluginId)
             ?: throw IllegalStateException("Project Atlas is not installed")
-        val latest = RepositoryHelper.loadPlugins(UPDATE_REPOSITORY_URL, indicator)
+        val candidates = RepositoryHelper.loadPlugins(UPDATE_REPOSITORY_URL, indicator)
             .asSequence()
             .filter { it.pluginId == pluginId }
+            .toList()
+        if (candidates.isEmpty()) return CheckResult.NotFound
+        val latest = candidates
+            .asSequence()
+            .filter { !it.version.isNullOrBlank() }
             .maxWithOrNull { left, right -> StringUtil.compareVersionNumbers(left.version, right.version) }
-            ?: return CheckResult.Latest
+            ?: return CheckResult.InvalidMetadata
 
         return if (StringUtil.compareVersionNumbers(latest.version, installed.version) > 0) {
             CheckResult.Available(installed.version, latest)
@@ -96,17 +130,28 @@ object ProjectAtlasPluginUpdater {
     }
 
     private fun install(project: Project, plugin: IdeaPluginDescriptor) {
+        if (project.isDisposed) return
+        if (!installingUpdate.compareAndSet(false, true)) {
+            notify(project, "Update Already In Progress", "Project Atlas is already downloading an update.", NotificationType.INFORMATION)
+            return
+        }
         ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Downloading and Installing Project Atlas Update", true) {
             private var installed = false
 
             override fun run(indicator: ProgressIndicator) {
-                installed = runCatching {
+                try {
                     val downloader = PluginDownloader.createDownloader(plugin, UPDATE_REPOSITORY_URL, currentIdeBuild())
-                    downloader.prepareToInstall(indicator).also { prepared ->
+                    installed = downloader.prepareToInstall(indicator).also { prepared ->
                         if (prepared) downloader.install()
                     }
-                }.onFailure { logger.warn("[ProjectAtlasUpdate] Failed to download or install an update", it) }
-                    .getOrDefault(false)
+                } catch (exception: ProcessCanceledException) {
+                    throw exception
+                } catch (exception: Exception) {
+                    logger.warn("[ProjectAtlasUpdate] Failed to download or install an update", exception)
+                    installed = false
+                } finally {
+                    installingUpdate.set(false)
+                }
             }
 
             override fun onSuccess() {
@@ -153,6 +198,8 @@ object ProjectAtlasPluginUpdater {
 
     private sealed interface CheckResult {
         data object Latest : CheckResult
+        data object NotFound : CheckResult
+        data object InvalidMetadata : CheckResult
         data object Failed : CheckResult
         data class Available(val currentVersion: String, val plugin: IdeaPluginDescriptor) : CheckResult
     }
