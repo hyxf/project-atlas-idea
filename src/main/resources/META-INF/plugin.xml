@@ -1,4 +1,4 @@
-<idea-plugin>
+<idea-plugin require-restart="true">
     <id>com.github.hyxf.project-atlas-idea</id>
     <name>Project Atlas</name>
     <vendor email="xchao887@gmail.com" url="https://github.com/hyxf/project-atlas-idea">Project Atlas</vendor>

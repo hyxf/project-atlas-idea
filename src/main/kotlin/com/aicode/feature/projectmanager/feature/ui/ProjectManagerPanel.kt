@@ -150,6 +150,7 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
             sortActions(),
             ActionManager.getInstance().getAction("com.aicode.projectmanager.ToggleView"),
             manageTagsAction(),
+            updateAction(),
             settingsAction(),
         )
         val actionToolbar = ActionManager.getInstance().createActionToolbar("ProjectManager.Toolbar", actions, true).apply {
@@ -188,6 +189,18 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
     ) {
         override fun actionPerformed(e: AnActionEvent) {
             ShowSettingsUtil.getInstance().showSettingsDialog(project, ProjectManagerConfigurable::class.java)
+        }
+
+        override fun getActionUpdateThread() = ActionUpdateThread.EDT
+    }
+
+    private fun updateAction() = object : AnAction(
+        "Check for Project Atlas Updates",
+        "Check for and install a Project Atlas update",
+        AllIcons.Actions.Download,
+    ) {
+        override fun actionPerformed(e: AnActionEvent) {
+            ProjectAtlasPluginUpdater.checkForUpdate(project)
         }
 
         override fun getActionUpdateThread() = ActionUpdateThread.EDT
