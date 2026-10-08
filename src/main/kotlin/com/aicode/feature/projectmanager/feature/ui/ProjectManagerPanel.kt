@@ -225,13 +225,18 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
                     is ProjectItem -> {
                         val current = isCurrentProject(item)
                         icon = AllIcons.Nodes.Folder
-                        if (item.favorite) append("★ ", SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
-                        if (current) append("✓ ", SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
                         append(
                             item.name,
                             if (current) SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES
                             else SimpleTextAttributes.REGULAR_ATTRIBUTES,
                         )
+                        val markers = buildList {
+                            if (item.favorite) add("★")
+                            if (current) add("✓")
+                        }
+                        if (markers.isNotEmpty()) {
+                            append(" · ${markers.joinToString(" · ")}", SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
+                        }
                         if (ProjectPathStatusCache.isDirectory(item.path) == false) {
                             append("  Missing", SimpleTextAttributes.ERROR_ATTRIBUTES)
                         } else if (ProjectPathStatusCache.isDirectory(item.path) == null) {
