@@ -103,12 +103,6 @@
     </extensions>
 
     <actions>
-        <group id="com.aicode.proxy.Actions" text="HTTP Proxy" popup="true">
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
-            <action id="com.aicode.proxy.Mode" class="com.aicode.feature.proxy.ProxyModeAction" text="Proxy: Direct"/>
-            <action id="com.aicode.proxy.Check" class="com.aicode.feature.proxy.CheckProxyAction" text="Check Current Proxy"/>
-            <action id="com.aicode.proxy.EditConfig" class="com.aicode.feature.proxy.EditProxyConfigAction" text="Open Proxy Configuration"/>
-        </group>
         <group id="AICodeGroup" text="AI Code" popup="true" icon="icons/aicode.svg">
             <!-- 1. Project View: Keep in CutCopyPaste group at the bottom -->
             <add-to-group group-id="CutCopyPasteGroup" anchor="last"/>
@@ -248,12 +242,6 @@
 
         <group id="com.aicode.projectmanager.Actions" text="Project Atlas" popup="true">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
-            <action id="com.aicode.projectmanager.OpenProject"
-                    class="com.aicode.feature.projectmanager.feature.action.QuickOpenProjectAction"
-                    text="Open Project..."/>
-            <action id="com.aicode.projectmanager.OpenProjectNewWindow"
-                    class="com.aicode.feature.projectmanager.feature.action.QuickOpenProjectInNewWindowAction"
-                    text="Open Project in New Window..."/>
             <action id="com.aicode.projectmanager.SearchProjects"
                     class="com.aicode.feature.projectmanager.feature.action.SearchProjectsAction"
                     text="Search Projects"
@@ -263,25 +251,17 @@
                 <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift P"/>
             </action>
             <separator/>
-            <action id="com.aicode.projectmanager.SaveCurrentProject"
-                    class="com.aicode.feature.projectmanager.feature.action.SaveCurrentProjectAction"
-                    text="Save Current Project..."/>
-            <action id="com.aicode.projectmanager.AddProject"
-                    class="com.aicode.feature.projectmanager.feature.action.AddProjectAction"
-                    text="Add Project..."/>
-            <action id="com.aicode.projectmanager.ImportProjects"
-                    class="com.aicode.feature.projectmanager.feature.action.ImportProjectsAction"
-                    text="Import Local Projects..."/>
-            <action id="com.aicode.projectmanager.RefreshProjects"
-                    class="com.aicode.feature.projectmanager.feature.action.RefreshProjectsAction"
-                    text="Refresh Projects"/>
             <action id="com.aicode.projectmanager.OpenToolWindow"
                     class="com.aicode.feature.projectmanager.feature.action.OpenProjectManagerAction"
-                    text="Show Project Atlas"
-                    description="Show or hide the Project Atlas tool window">
+                    text="Show Projects"
+                    description="Show or hide the Projects tool window">
                 <keyboard-shortcut keymap="$default" first-keystroke="control shift COMMA"/>
                 <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift COMMA"/>
             </action>
+            <separator/>
+            <action id="com.aicode.proxy.Mode" class="com.aicode.feature.proxy.ProxyModeAction" text="Proxy: Direct"/>
+            <action id="com.aicode.proxy.Check" class="com.aicode.feature.proxy.CheckProxyAction" text="Check Current Proxy"/>
+            <action id="com.aicode.proxy.EditConfig" class="com.aicode.feature.proxy.EditProxyConfigAction" text="Open Proxy Configuration"/>
         </group>
     </actions>
 

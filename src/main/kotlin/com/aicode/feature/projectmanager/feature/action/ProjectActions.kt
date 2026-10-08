@@ -187,8 +187,8 @@ class OpenProjectManagerAction : ProjectManagerAction() {
     override fun update(e: AnActionEvent) {
         val toolWindow = e.project?.let { ToolWindowManager.getInstance(it).getToolWindow("Project Atlas: Projects") }
         e.presentation.isEnabled = toolWindow != null
-        e.presentation.text = if (toolWindow?.isVisible == true) "Hide Project Atlas" else "Show Project Atlas"
-        e.presentation.description = "Show or hide the Project Atlas tool window"
+        e.presentation.text = if (toolWindow?.isVisible == true) "Hide Projects" else "Show Projects"
+        e.presentation.description = "Show or hide the Projects tool window"
     }
 
     override fun getActionUpdateThread() = ActionUpdateThread.EDT
