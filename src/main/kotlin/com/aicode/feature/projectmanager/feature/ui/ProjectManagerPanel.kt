@@ -55,6 +55,7 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
     private val manager = service<ProjectManagerService>()
     private val settings = service<ProjectManagerSettings>()
     private val excludedTagFilters = linkedSetOf<String>()
+    private var projectFilter = ProjectFilter.ALL
     private val projectTree = Tree()
     private val status = JBLabel()
     init {
@@ -98,12 +99,13 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
                 override fun actionPerformed(e: AnActionEvent) = editConfiguration()
             },
             ActionManager.getInstance().getAction("com.aicode.projectmanager.SearchProjects"),
+            projectFilterAction(),
+            manageTagsAction(),
             object : AnAction("Refresh", "Reload project.json", AllIcons.Actions.Refresh) {
                 override fun actionPerformed(e: AnActionEvent) = ProjectUiSupport.runInBackground(
                     project, "Refresh project.json", { service<ProjectJsonStore>().forceReload() }, { reloadFromStore() },
                 )
             },
-            manageTagsAction(),
             updateAction(),
             settingsAction(),
         )
@@ -114,6 +116,37 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
             border = JBUI.Borders.empty(2, 4)
             add(actionToolbar, BorderLayout.CENTER)
         }
+    }
+
+    private fun projectFilterAction() = object : ActionGroup(
+        "Filter Projects: ${projectFilter.title}",
+        "Show all, recently opened, or favorite projects",
+        AllIcons.General.Filter,
+    ) {
+        init {
+            isPopup = true
+        }
+
+        override fun getChildren(e: AnActionEvent?): Array<AnAction> = ProjectFilter.values().map { filter ->
+            object : ToggleAction(filter.title) {
+                override fun isSelected(e: AnActionEvent) = projectFilter == filter
+
+                override fun setSelected(e: AnActionEvent, state: Boolean) {
+                    if (state) {
+                        projectFilter = filter
+                        refreshProjects(null)
+                    }
+                }
+
+                override fun getActionUpdateThread() = ActionUpdateThread.EDT
+            }
+        }.toTypedArray()
+
+        override fun update(e: AnActionEvent) {
+            e.presentation.text = "Filter Projects: ${projectFilter.title}"
+        }
+
+        override fun getActionUpdateThread() = ActionUpdateThread.EDT
     }
 
     private fun settingsAction() = object : AnAction(
@@ -143,7 +176,7 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
     private fun manageTagsAction() = object : ActionGroup(
         "Filter by Tags",
         "Filter projects by tags",
-        ProjectManagerIcons.FilterByTag,
+        ProjectManagerIcons.TagGroup,
     ) {
         init {
             isPopup = true
@@ -266,25 +299,34 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
                     (item.tags.isEmpty() && UNTAGGED_FILTER_KEY in selectedTags)
             }
         }
-        tagFilteredProjects.forEach { item ->
+        val filteredProjects = when (projectFilter) {
+            ProjectFilter.ALL -> tagFilteredProjects
+            ProjectFilter.RECENT -> tagFilteredProjects.filter { it.lastOpenedAt != null }
+                .sortedByDescending { it.lastOpenedAt }
+            ProjectFilter.FAVORITE -> tagFilteredProjects.filter(ProjectItem::favorite)
+        }
+        filteredProjects.forEach { item ->
             ProjectPathStatusCache.refresh(item.path) {
                 projectTree.repaint()
             }
         }
-        refreshTagTree(preferredId, tagFilteredProjects, selectedTags)
+        refreshTagTree(preferredId, filteredProjects, selectedTags)
     }
 
     private fun refreshTagTree(preferredId: String?, projects: List<ProjectItem>, selectedTags: Set<String>) {
         val root = DefaultMutableTreeNode("Tags")
         var associationCount = 0
         val selectedRealTags = selectedTags - UNTAGGED_FILTER_KEY
-        var groupCount = selectedRealTags.size
+        var groupCount = 0
         selectedRealTags.sorted().forEach { tag ->
+            val matchingProjects = projects.filter { tag in it.tags }
+            if (matchingProjects.isEmpty()) return@forEach
             val tagNode = DefaultMutableTreeNode(TagNode(tag))
-            projects.filter { tag in it.tags }.forEach {
+            matchingProjects.forEach {
                 tagNode.add(DefaultMutableTreeNode(it)); associationCount++
             }
             root.add(tagNode)
+            groupCount++
         }
         val untaggedProjects = projects.filter { it.tags.isEmpty() }
         if (UNTAGGED_FILTER_KEY in selectedTags && untaggedProjects.isNotEmpty()) {
@@ -298,7 +340,7 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
         projectTree.model = DefaultTreeModel(root)
         TreeUtil.expandAll(projectTree)
         preferredId?.let { selectProjectInTree(it) }
-        projectTree.emptyText.text = "No tags"
+        projectTree.emptyText.text = "No projects match the current filters"
         status.text = "$groupCount tag groups  ·  $associationCount project associations"
     }
 
@@ -523,6 +565,11 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
     }
     private fun menuShortcutMask() = java.awt.Toolkit.getDefaultToolkit().menuShortcutKeyMaskEx
     private data class TagNode(val name: String)
+    private enum class ProjectFilter(val title: String) {
+        ALL("All"),
+        RECENT("Recent"),
+        FAVORITE("Favorite"),
+    }
     private companion object {
         const val UNTAGGED_GROUP_NAME = "Untagged"
         const val UNTAGGED_FILTER_KEY = "\u0000untagged"
