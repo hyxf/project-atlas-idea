@@ -29,6 +29,7 @@
                 id="AICode"
                 displayType="BALLOON"
                 isLogByDefault="true"/>
+        <notificationGroup id="AICode.Proxy" displayType="BALLOON" isLogByDefault="true"/>
 
         <!-- Tool Window -->
         <toolWindow
@@ -101,6 +102,13 @@
     </extensions>
 
     <actions>
+        <group id="com.aicode.proxy.Actions" text="HTTP Proxy" popup="true">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <add-to-group group-id="MainToolBar" anchor="last"/>
+            <action id="com.aicode.proxy.Mode" class="com.aicode.feature.proxy.ProxyModeAction" text="Proxy: Direct"/>
+            <action id="com.aicode.proxy.Check" class="com.aicode.feature.proxy.CheckProxyAction" text="Check Current Proxy"/>
+            <action id="com.aicode.proxy.EditConfig" class="com.aicode.feature.proxy.EditProxyConfigAction" text="Open Proxy Configuration"/>
+        </group>
         <group id="AICodeGroup" text="AI Code" popup="true" icon="icons/aicode.svg">
             <!-- 1. Project View: Keep in CutCopyPaste group at the bottom -->
             <add-to-group group-id="CutCopyPasteGroup" anchor="last"/>

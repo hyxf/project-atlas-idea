@@ -65,7 +65,6 @@ class ProjectManagerServiceTest {
     }
 
     @Test
-    @Test
     fun `missing project can be relocated without changing identity`() {
         val saved = service.addProject("Alpha", Path.of("build/old"))
         val relocated = service.relocateProject(saved.id, Path.of("build/new"))

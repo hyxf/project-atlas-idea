@@ -12,6 +12,10 @@
 Project Atlas 将 AI 代码上下文、常用 Git/Terminal 操作和本地项目管理整合到 IntelliJ IDEA 中。
 其中 AI 上下文功能会在项目根目录管理 `.aicode.json`，并支持按上下文组组织文件和导出 Markdown。
 
+### 🌐 HTTP/HTTPS 代理
+
+从 **Tools → HTTP Proxy** 或主工具栏打开代理菜单，可在 Direct 和 `~/.project-atlas/proxy.json` 中的命名代理间切换、检查当前代理并打开配置文件。IDE 当前设置中的其他代理会作为 `system` 项显示。配置文件缺失时会创建 Local 默认项；支持 `{ "proxy": "http://..." }` 和 `"proxies"` 字符串数组旧格式。
+
 ---
 
 ## ✨ 功能特性
