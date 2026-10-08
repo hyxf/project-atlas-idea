@@ -224,8 +224,9 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
                 when (item) {
                     is ProjectItem -> {
                         val current = isCurrentProject(item)
-                        if (current) icon = AllIcons.Actions.Checked
+                        icon = AllIcons.Nodes.Folder
                         if (item.favorite) append("★ ", SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
+                        if (current) append("✓ ", SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
                         append(
                             item.name,
                             if (current) SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES
