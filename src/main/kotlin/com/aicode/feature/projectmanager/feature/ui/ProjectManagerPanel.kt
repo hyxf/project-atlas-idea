@@ -42,11 +42,14 @@ import com.intellij.ui.treeStructure.Tree
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.tree.TreeUtil
 import java.awt.BorderLayout
+import java.awt.datatransfer.DataFlavor
 import java.awt.datatransfer.StringSelection
 import java.awt.event.ActionEvent
 import java.awt.event.KeyEvent
+import java.io.File
 import javax.swing.JComponent
 import javax.swing.JPanel
+import javax.swing.TransferHandler
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
 import javax.swing.JTree
@@ -58,6 +61,32 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
     private var projectFilter = ProjectFilter.ALL
     private val projectTree = Tree()
     private val status = JBLabel()
+    private val projectFolderDropHandler = object : TransferHandler() {
+        override fun canImport(support: TransferSupport): Boolean =
+            support.isDataFlavorSupported(DataFlavor.javaFileListFlavor)
+
+        override fun importData(support: TransferSupport): Boolean {
+            if (!canImport(support)) return false
+            val files = runCatching {
+                @Suppress("UNCHECKED_CAST")
+                (support.transferable.getTransferData(DataFlavor.javaFileListFlavor) as List<File>)
+            }.getOrNull() ?: return false
+            if (files.size != 1) {
+                ProjectUiSupport.notify(project, "Drop one project folder at a time", NotificationType.INFORMATION)
+                return false
+            }
+            val folder = files.single()
+            if (!folder.isDirectory) {
+                ProjectUiSupport.notify(project, "Drop a folder to import it into Project Atlas", NotificationType.INFORMATION)
+                return false
+            }
+            ProjectImportUi.importFolder(project, folder.toPath()) { refresh() }
+            return true
+        }
+
+        override fun getSourceActions(component: JComponent) = NONE
+    }
+
     init {
         ApplicationManager.getApplication().messageBus.connect(project).subscribe(
             ProjectManagerSettingsListener.TOPIC,
@@ -69,6 +98,7 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
         )
         toolbar = createToolbar()
         setContent(createContent())
+        transferHandler = projectFolderDropHandler
         configureProjects()
         refresh()
     }
@@ -219,7 +249,8 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
     }
 
     private fun createContent(): JComponent = JPanel(BorderLayout()).apply {
-            add(JBScrollPane(projectTree), BorderLayout.CENTER)
+            projectTree.transferHandler = projectFolderDropHandler
+            add(JBScrollPane(projectTree).apply { transferHandler = projectFolderDropHandler }, BorderLayout.CENTER)
             add(status.apply { border = JBUI.Borders.empty(4, 8) }, BorderLayout.SOUTH)
         }
 

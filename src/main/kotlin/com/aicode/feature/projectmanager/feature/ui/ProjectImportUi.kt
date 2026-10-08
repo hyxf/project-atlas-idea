@@ -13,6 +13,7 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
+import java.nio.file.Path
 
 object ProjectImportUi {
     fun show(project: Project, onImported: () -> Unit) {
@@ -20,7 +21,10 @@ object ProjectImportUi {
             .withTitle("Import Local Project")
             .withDescription("Choose a project folder to add to Project Atlas")
         val selected = FileChooser.chooseFile(descriptor, project, null) ?: return
-        val path = selected.toNioPath()
+        importFolder(project, selected.toNioPath(), onImported)
+    }
+
+    fun importFolder(project: Project, path: Path, onImported: () -> Unit) {
         val manager = service<ProjectManagerService>()
         var summary: ProjectImportSummary? = null
         var importError: Throwable? = null
