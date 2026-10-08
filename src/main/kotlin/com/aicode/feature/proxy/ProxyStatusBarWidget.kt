@@ -7,10 +7,12 @@ import com.intellij.openapi.wm.StatusBarWidget
 import com.intellij.openapi.wm.StatusBarWidgetFactory
 import com.intellij.openapi.project.Project
 import com.intellij.util.concurrency.AppExecutorUtil
+import com.intellij.ui.AnimatedIcon
 import java.awt.event.MouseEvent
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import javax.swing.SwingConstants
+import javax.swing.Icon
 
 class ProxyStatusBarWidgetFactory : StatusBarWidgetFactory {
     override fun getId() = ProxyStatusBarWidget.ID
@@ -54,4 +56,60 @@ class ProxyStatusBarWidget(private val project: Project) : StatusBarWidget, Stat
     }
 
     companion object { const val ID = "ProjectAtlas.ProxyStatus" }
+}
+
+class ProxyCheckStatusBarWidgetFactory : StatusBarWidgetFactory {
+    override fun getId() = ProxyCheckStatusBarWidget.ID
+    override fun getDisplayName() = "Project Atlas Proxy Check Status"
+    override fun isEnabledByDefault() = true
+    override fun isConfigurable() = true
+    override fun createWidget(project: Project) = ProxyCheckStatusBarWidget(project)
+}
+
+class ProxyCheckStatusBarWidget(private val project: Project) : StatusBarWidget, StatusBarWidget.IconPresentation {
+    private var refreshTask: ScheduledFuture<*>? = null
+    private var statusBar: StatusBar? = null
+    private var animationStartedAtNanos = 0L
+    private var lastFrame = -2
+
+    override fun ID() = ID
+    override fun getPresentation(): StatusBarWidget.WidgetPresentation = this
+    override fun getIcon(): Icon? {
+        val frame = currentFrame()
+        return if (frame < 0) null else AnimatedIcon.Default.ICONS[frame]
+    }
+    override fun getTooltipText(): String? = if (ProxyPlatform.isCurrentProxyBeingChecked()) "Checking proxy connection…" else null
+
+    override fun install(statusBar: StatusBar) {
+        this.statusBar = statusBar
+        refreshTask = AppExecutorUtil.getAppScheduledExecutorService().scheduleWithFixedDelay({
+            if (!project.isDisposed) {
+                val frame = currentFrame()
+                if (frame != lastFrame) {
+                    lastFrame = frame
+                    ApplicationManager.getApplication().invokeLater {
+                        if (!project.isDisposed) this.statusBar?.updateWidget(ID)
+                    }
+                }
+            }
+        }, 0, 100, TimeUnit.MILLISECONDS)
+    }
+
+    override fun dispose() {
+        refreshTask?.cancel(false)
+        refreshTask = null
+        statusBar = null
+    }
+
+    private fun currentFrame(): Int {
+        if (!ProxyPlatform.isCurrentProxyBeingChecked()) {
+            animationStartedAtNanos = 0
+            return -1
+        }
+        if (animationStartedAtNanos == 0L) animationStartedAtNanos = System.nanoTime()
+        val frameDurationNanos = TimeUnit.MILLISECONDS.toNanos(100)
+        return ((System.nanoTime() - animationStartedAtNanos) / frameDurationNanos % AnimatedIcon.Default.ICONS.size).toInt()
+    }
+
+    companion object { const val ID = "ProjectAtlas.ProxyCheckStatus" }
 }

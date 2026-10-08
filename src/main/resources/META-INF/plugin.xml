@@ -31,6 +31,7 @@
                 isLogByDefault="true"/>
         <notificationGroup id="AICode.Proxy" displayType="BALLOON" isLogByDefault="true"/>
         <statusBarWidgetFactory id="ProjectAtlas.ProxyStatus" implementation="com.aicode.feature.proxy.ProxyStatusBarWidgetFactory"/>
+        <statusBarWidgetFactory id="ProjectAtlas.ProxyCheckStatus" implementation="com.aicode.feature.proxy.ProxyCheckStatusBarWidgetFactory" order="after ProjectAtlas.ProxyStatus"/>
 
         <!-- Tool Window -->
         <toolWindow

@@ -74,18 +74,24 @@ class CheckProxyAction : AnAction("Check Current Proxy") {
         val proxy = ProxyPlatform.currentProxyAddress()
         if (proxy == null) {
             val message = if (ProxyPlatform.isProxyEnabled()) {
-                "The IDE proxy is managed by PAC or uses SOCKS; its HTTP proxy endpoint cannot be checked by this action."
-            } else "Direct mode is active; there is no proxy to check."
-            notify(project, message, if (ProxyPlatform.isProxyEnabled()) NotificationType.WARNING else NotificationType.INFORMATION)
+                "IDEA manages this proxy with PAC or SOCKS, so it cannot be checked here." to NotificationType.WARNING
+            } else "Direct mode is active." to NotificationType.INFORMATION
+            ApplicationManager.getApplication().invokeLater { notify(project, message.first, message.second) }
             return
         }
+        val endpointKey = "${proxy.first}:${proxy.second}"
+        if (ProxyHealthState.isChecking(endpointKey)) return
+        ProxyHealthState.begin(endpointKey)
         ApplicationManager.getApplication().executeOnPooledThread {
             val result = runCatching { ProxyChecker().check(proxy.first, proxy.second) }
             ApplicationManager.getApplication().invokeLater {
-                result.onSuccess { status ->
-                    val type = if (status in 200..299) NotificationType.INFORMATION else NotificationType.WARNING
-                    notify(project, "Proxy ${proxy.first}:${proxy.second} responded with HTTP $status.", type)
-                }.onFailure { notify(project, "Proxy check failed for ${proxy.first}:${proxy.second}: ${it.message}", NotificationType.ERROR) }
+                val connected = result.isSuccess
+                ProxyHealthState.complete(endpointKey, connected)
+                notify(
+                    project,
+                    if (connected) "Proxy connected" else "Proxy not connected",
+                    if (connected) NotificationType.INFORMATION else NotificationType.ERROR,
+                )
             }
         }
     }
@@ -188,8 +194,32 @@ object ProxyPlatform {
     }
     fun currentUrl(): String? = currentProxyAddress()?.let { "http://${it.first}:${it.second}" }
     fun currentLabel(): String = currentUrl() ?: if (isProxyEnabled()) "Proxy (IDE managed)" else "Direct"
+    fun isCurrentProxyBeingChecked(): Boolean = currentProxyAddress()?.let { ProxyHealthState.isChecking("${it.first}:${it.second}") } == true
 
     fun apply(url: String?) = controller.apply(url)
+}
+
+enum class ProxyReachability { CHECKING, CONNECTED, DISCONNECTED }
+
+object ProxyHealthState {
+    @Volatile private var endpointKey: String? = null
+    @Volatile private var reachability: ProxyReachability? = null
+
+    @Synchronized fun begin(endpoint: String) {
+        endpointKey = endpoint
+        reachability = ProxyReachability.CHECKING
+    }
+
+    @Synchronized fun complete(endpoint: String, connected: Boolean) {
+        if (endpointKey != endpoint) return
+        reachability = if (connected) ProxyReachability.CONNECTED else ProxyReachability.DISCONNECTED
+    }
+
+    @Synchronized fun resultFor(endpoint: String): ProxyReachability? {
+        return if (endpointKey == endpoint) reachability else null
+    }
+
+    @Synchronized fun isChecking(endpoint: String) = resultFor(endpoint) == ProxyReachability.CHECKING
 }
 
 data class ProxyEndpoint(val host: String, val port: Int)

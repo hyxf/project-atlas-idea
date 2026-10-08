@@ -66,6 +66,17 @@ class ProxyFeatureTest {
         assertThrows(IllegalStateException::class.java) { failedTcp.check("localhost", 8080) }
     }
 
+    @Test fun `reachability state reports progress and only applies to checked endpoint`() {
+        ProxyHealthState.begin("proxy.local:8080")
+        assertEquals(ProxyReachability.CHECKING, ProxyHealthState.resultFor("proxy.local:8080"))
+        assertNull(ProxyHealthState.resultFor("other.local:8080"))
+        ProxyHealthState.complete("proxy.local:8080", true)
+        assertEquals(ProxyReachability.CONNECTED, ProxyHealthState.resultFor("proxy.local:8080"))
+        ProxyHealthState.begin("proxy.local:8080")
+        ProxyHealthState.complete("proxy.local:8080", false)
+        assertEquals(ProxyReachability.DISCONNECTED, ProxyHealthState.resultFor("proxy.local:8080"))
+    }
+
     private class FakeProxyController : ProxyController {
         private var endpoint: ProxyEndpoint? = null
         override fun read() = endpoint
