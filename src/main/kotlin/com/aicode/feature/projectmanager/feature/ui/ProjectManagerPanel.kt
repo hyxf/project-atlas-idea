@@ -237,7 +237,10 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
                             ProjectPathStatusCache.refresh(item.path) { projectTree.repaint() }
                         }
                     }
-                    is TagNode -> append(item.name, SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
+                    is TagNode -> {
+                        icon = ProjectManagerIcons.TagGroup
+                        append(item.name, SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
+                    }
                     else -> append(item?.toString().orEmpty())
                 }
             }
