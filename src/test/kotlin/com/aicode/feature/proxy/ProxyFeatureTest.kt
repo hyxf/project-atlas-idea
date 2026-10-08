@@ -49,6 +49,11 @@ class ProxyFeatureTest {
         assertNull(controller.read())
     }
 
+    @Test fun `direct selection is distinct from an IDE managed system entry`() {
+        assertFalse(ProxyChoice("Direct", null).preserveCurrent)
+        assertTrue(ProxyChoice("system (IDE managed)", "", preserveCurrent = true).preserveCurrent)
+    }
+
     @Test fun `checker performs TCP then request and returns response code`() {
         val events = mutableListOf<String>()
         val checker = ProxyChecker(

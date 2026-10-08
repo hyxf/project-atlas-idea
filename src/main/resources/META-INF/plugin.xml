@@ -30,6 +30,7 @@
                 displayType="BALLOON"
                 isLogByDefault="true"/>
         <notificationGroup id="AICode.Proxy" displayType="BALLOON" isLogByDefault="true"/>
+        <statusBarWidgetFactory id="ProjectAtlas.ProxyStatus" implementation="com.aicode.feature.proxy.ProxyStatusBarWidgetFactory"/>
 
         <!-- Tool Window -->
         <toolWindow
@@ -104,7 +105,6 @@
     <actions>
         <group id="com.aicode.proxy.Actions" text="HTTP Proxy" popup="true">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
-            <add-to-group group-id="MainToolBar" anchor="last"/>
             <action id="com.aicode.proxy.Mode" class="com.aicode.feature.proxy.ProxyModeAction" text="Proxy: Direct"/>
             <action id="com.aicode.proxy.Check" class="com.aicode.feature.proxy.CheckProxyAction" text="Check Current Proxy"/>
             <action id="com.aicode.proxy.EditConfig" class="com.aicode.feature.proxy.EditProxyConfigAction" text="Open Proxy Configuration"/>

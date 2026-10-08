@@ -14,7 +14,7 @@ Project Atlas 将 AI 代码上下文、常用 Git/Terminal 操作和本地项目
 
 ### 🌐 HTTP/HTTPS 代理
 
-从 **Tools → HTTP Proxy** 或主工具栏打开代理菜单，可在 Direct 和 `~/.project-atlas/proxy.json` 中的命名代理间切换、检查当前代理并打开配置文件。IDE 当前设置中的其他代理会作为 `system` 项显示。配置文件缺失时会创建 Local 默认项；支持 `{ "proxy": "http://..." }` 和 `"proxies"` 字符串数组旧格式。
+点击 IDEA 底部状态栏右侧的 **Proxy** 项，或从 **Tools → HTTP Proxy** 打开代理菜单，可在 Direct 和 `~/.project-atlas/proxy.json` 中的命名代理间切换、检查当前代理并打开配置文件。IDE 当前设置中的其他代理会作为 `system` 项显示。配置文件缺失时会创建 Local 默认项；支持 `{ "proxy": "http://..." }` 和 `"proxies"` 字符串数组旧格式。
 
 ---
 

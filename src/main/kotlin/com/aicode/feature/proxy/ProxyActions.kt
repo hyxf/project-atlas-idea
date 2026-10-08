@@ -10,11 +10,26 @@ import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopupFactory
+import com.intellij.openapi.ui.popup.JBPopup
+import com.intellij.ui.components.JBList
+import com.intellij.ui.components.JBScrollPane
+import com.intellij.ui.SimpleTextAttributes
+import com.intellij.ui.ColoredListCellRenderer
+import com.intellij.util.ui.JBUI
 import com.intellij.util.net.HttpConfigurable
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.URLConnection
 import java.net.Socket
+import java.awt.BorderLayout
+import java.awt.Dimension
+import java.awt.event.ActionEvent
+import javax.swing.AbstractAction
+import javax.swing.DefaultListModel
+import javax.swing.JComponent
+import javax.swing.JPanel
+import javax.swing.JList
+import javax.swing.ListSelectionModel
 
 private const val NOTIFICATION_GROUP = "AICode.Proxy"
 
@@ -28,31 +43,7 @@ class ProxyModeAction : AnAction() {
             try {
                 val entries = ProxyConfigStore().read()
                 ApplicationManager.getApplication().invokeLater {
-                    val current = ProxyPlatform.currentUrl()
-                    val proxyActive = ProxyPlatform.isProxyEnabled()
-                    val choices = buildList {
-                        add(ProxyChoice("Direct", null))
-                        entries.forEach { add(ProxyChoice("${it.name} — ${it.url}", it.url)) }
-                        if (proxyActive && (current == null || entries.none { it.url == current })) add(ProxyChoice("system${current?.let { " — $it" } ?: " (IDE managed)"}", current ?: ""))
-                    }.map { choice ->
-                        val selected = choice.url == current || (choice.url == null && current == null && !proxyActive) || (choice.url == "" && current == null && proxyActive)
-                        if (selected) "✓ ${choice.label}" else "   ${choice.label}"
-                    }
-                    JBPopupFactory.getInstance().createPopupChooserBuilder(choices)
-                        .setTitle("Select HTTP Proxy")
-                        .setItemChosenCallback { selected ->
-                            val index = choices.indexOf(selected)
-                            val choice = buildList {
-                                add(ProxyChoice("Direct", null)); entries.forEach { add(ProxyChoice("${it.name} — ${it.url}", it.url)) }
-                                if (proxyActive && (current == null || entries.none { it.url == current })) add(ProxyChoice("system${current?.let { " — $it" } ?: " (IDE managed)"}", current ?: ""))
-                            }.getOrNull(index) ?: return@setItemChosenCallback
-                            try {
-                                if (choice.url.isNullOrEmpty() && proxyActive) return@setItemChosenCallback
-                                ProxyPlatform.apply(choice.url)
-                                notify(project, "IDE proxy is now ${if (choice.url == null) "Direct" else choice.url}.", NotificationType.INFORMATION)
-                            }
-                            catch (ex: Exception) { notify(project, "Could not change IDE proxy: ${ex.message}", NotificationType.ERROR) }
-                        }.createPopup().showInBestPositionFor(e.dataContext)
+                    ProxySelectionPopup(project, entries).show(e.dataContext)
                 }
             } catch (ex: Exception) { ApplicationManager.getApplication().invokeLater { notify(project, ex.message ?: "Could not load proxy configuration.", NotificationType.ERROR) } }
         }
@@ -100,7 +91,93 @@ class CheckProxyAction : AnAction("Check Current Proxy") {
     }
 }
 
-data class ProxyChoice(val label: String, val url: String?)
+data class ProxyChoice(val label: String, val url: String?, val preserveCurrent: Boolean = false)
+
+class ProxySelectionPopup(private val project: Project?, private val configured: List<NamedProxy>) {
+    private val model = DefaultListModel<ProxyChoice>()
+    private val list = JBList(model)
+    private val content = JPanel(BorderLayout())
+    private lateinit var popup: JBPopup
+    private val choices = buildList {
+        add(ProxyChoice("Direct", null))
+        configured.forEach { add(ProxyChoice("${it.name} — ${it.url}", it.url)) }
+        val current = ProxyPlatform.currentUrl()
+        if (ProxyPlatform.isProxyEnabled() && (current == null || configured.none { it.url == current })) {
+            add(ProxyChoice("system${current?.let { " — $it" } ?: " (IDE managed)"}", current ?: "", preserveCurrent = current == null))
+        }
+    }
+
+    init {
+        list.selectionMode = ListSelectionModel.SINGLE_SELECTION
+        list.fixedCellHeight = JBUI.scale(38)
+        list.border = JBUI.Borders.empty(4, 0)
+        list.cellRenderer = object : ColoredListCellRenderer<ProxyChoice>() {
+            override fun customizeCellRenderer(
+                list: JList<out ProxyChoice>, value: ProxyChoice?, index: Int,
+                selected: Boolean, hasFocus: Boolean,
+            ) {
+                value ?: return
+                if (isSelected(value)) append("✓  ", SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
+                else append("   ", SimpleTextAttributes.REGULAR_ATTRIBUTES)
+                append(value.label, if (isSelected(value)) SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES else SimpleTextAttributes.REGULAR_ATTRIBUTES)
+            }
+        }
+        list.addMouseListener(object : java.awt.event.MouseAdapter() {
+            override fun mouseClicked(e: java.awt.event.MouseEvent) {
+                if (e.clickCount == 2 && list.locationToIndex(e.point) >= 0) selectCurrent()
+            }
+        })
+        list.getInputMap(JComponent.WHEN_FOCUSED).put(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ENTER, 0), "selectCurrent")
+        list.actionMap.put("selectCurrent", object : AbstractAction() {
+            override fun actionPerformed(e: ActionEvent?) = selectCurrent()
+        })
+        content.preferredSize = Dimension(560, (choices.size.coerceAtMost(7) * JBUI.scale(38)) + JBUI.scale(8))
+        content.add(JBScrollPane(list), BorderLayout.CENTER)
+        reload()
+    }
+
+    fun show(context: com.intellij.openapi.actionSystem.DataContext) {
+        popup = JBPopupFactory.getInstance().createComponentPopupBuilder(content, list)
+            .setTitle("Select HTTP Proxy")
+            .setFocusable(true)
+            .setRequestFocus(true)
+            .setResizable(true)
+            .setMovable(true)
+            .setCancelOnClickOutside(true)
+            .setCancelOnOtherWindowOpen(true)
+            .setDimensionServiceKey(project, "ProjectAtlas.ProxySelectionPopup.NoSearch", false)
+            .createPopup()
+        if (project != null) popup.showCenteredInCurrentWindow(project)
+        else popup.showInBestPositionFor(context)
+    }
+
+    private fun selectCurrent() {
+        val choice = list.selectedValue ?: return
+        if (choice.preserveCurrent) return
+        popup.cancel()
+        try {
+            ProxyPlatform.apply(choice.url)
+            notify(project, "IDE proxy is now ${if (choice.url == null) "Direct" else choice.url}.", NotificationType.INFORMATION)
+        } catch (ex: Exception) {
+            notify(project, "Could not change IDE proxy: ${ex.message}", NotificationType.ERROR)
+        }
+    }
+
+    private fun isSelected(choice: ProxyChoice): Boolean {
+        val current = ProxyPlatform.currentUrl()
+        val enabled = ProxyPlatform.isProxyEnabled()
+        return choice.url == current || (choice.url == null && current == null && !enabled) ||
+            (choice.url == "" && current == null && enabled)
+    }
+
+    private fun reload() {
+        model.clear()
+        choices.forEach(model::addElement)
+        val selectedIndex = choices.indexOfFirst(::isSelected)
+        if (selectedIndex >= 0) list.selectedIndex = selectedIndex
+        else if (!model.isEmpty) list.selectedIndex = 0
+    }
+}
 
 object ProxyPlatform {
     private val controller = IntelliJProxyController()
