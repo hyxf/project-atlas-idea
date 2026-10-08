@@ -1,10 +1,13 @@
 package com.aicode.feature.projectmanager.feature.ui
 
 import com.aicode.feature.projectmanager.feature.project.ProjectImportOutcome
+import com.aicode.feature.projectmanager.feature.project.ProjectImportRequest
 import com.aicode.feature.projectmanager.feature.project.ProjectImportSummary
 import com.aicode.feature.projectmanager.feature.project.ProjectManagerService
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.components.service
+import com.intellij.openapi.fileChooser.FileChooser
+import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
@@ -13,15 +16,30 @@ import com.intellij.openapi.ui.Messages
 
 object ProjectImportUi {
     fun show(project: Project, onImported: () -> Unit) {
+        val descriptor = FileChooserDescriptorFactory.createSingleFolderDescriptor()
+            .withTitle("Import Local Project")
+            .withDescription("Choose a project folder to add to Project Atlas")
+        val selected = FileChooser.chooseFile(descriptor, project, null) ?: return
+        val path = selected.toNioPath()
         val manager = service<ProjectManagerService>()
-        val dialog = ProjectImportPreviewDialog(project, manager)
-        if (!dialog.showAndGet()) return
         var summary: ProjectImportSummary? = null
         var importError: Throwable? = null
-        ProgressManager.getInstance().run(object : Task.Modal(project, "Importing Local Projects", true) {
+        ProgressManager.getInstance().run(object : Task.Modal(project, "Importing Local Project", true) {
             override fun run(indicator: ProgressIndicator) {
                 indicator.isIndeterminate = true
-                runCatching { manager.importProjects(dialog.requests, dialog.shouldUpdateExisting) }
+                runCatching {
+                    manager.importProjects(
+                        listOf(
+                            ProjectImportRequest(
+                                path = path,
+                                name = path.fileName?.toString().orEmpty().ifBlank { path.toString() },
+                                tags = emptySet(),
+                                favorite = false,
+                            ),
+                        ),
+                        updateExisting = false,
+                    )
+                }
                     .onSuccess { summary = it }
                     .onFailure { importError = it }
             }
@@ -31,7 +49,7 @@ object ProjectImportUi {
             return
         }
         val completed = summary ?: return
-        onImported()
+        if (completed.count(ProjectImportOutcome.ADDED) > 0) onImported()
         val failed = completed.results.filter { it.outcome == ProjectImportOutcome.FAILED }
         if (failed.isNotEmpty()) {
             val details = failed.joinToString("\n") { result ->
@@ -43,15 +61,12 @@ object ProjectImportUi {
                 "Import Completed with Errors",
             )
         }
-        ProjectUiSupport.notify(
-            project,
-            "Added ${completed.count(ProjectImportOutcome.ADDED)} · " +
-                "Updated ${completed.count(ProjectImportOutcome.UPDATED)} · " +
-                "Skipped ${completed.count(ProjectImportOutcome.SKIPPED)} · " +
-                "Failed ${completed.count(ProjectImportOutcome.FAILED)}",
-            if (completed.count(ProjectImportOutcome.FAILED) > 0) NotificationType.WARNING else NotificationType.INFORMATION,
-        )
+        when {
+            completed.count(ProjectImportOutcome.ADDED) > 0 ->
+                ProjectUiSupport.notify(project, "Project added to Project Atlas", NotificationType.INFORMATION)
+            completed.count(ProjectImportOutcome.SKIPPED) > 0 ->
+                ProjectUiSupport.notify(project, "This project is already in Project Atlas", NotificationType.INFORMATION)
+        }
     }
 
 }
-
