@@ -1,6 +1,5 @@
 package com.aicode.feature.projectmanager.feature.action
 
-import com.aicode.feature.projectmanager.ProjectManagerIcons
 import com.aicode.feature.projectmanager.feature.project.ProjectItem
 import com.aicode.feature.projectmanager.feature.project.ProjectManagerService
 import com.aicode.feature.projectmanager.feature.ui.ProjectEditDialog
@@ -171,27 +170,6 @@ class SearchProjectsAction : ProjectManagerAction() {
                 }
             }.show()
         }
-    }
-}
-
-class ToggleProjectViewAction : ProjectManagerAction() {
-    override fun actionPerformed(e: AnActionEvent) {
-        ProjectUiSupport.runInBackground(e.project, "Save view setting", {
-            val settings = service<ProjectManagerSettings>()
-            val nextView = if (settings.state.viewMode == ProjectManagerSettings.ViewMode.LIST) {
-                ProjectManagerSettings.ViewMode.TAGS
-            } else {
-                ProjectManagerSettings.ViewMode.LIST
-            }
-            settings.updateViewMode(nextView)
-        })
-    }
-
-    override fun update(e: AnActionEvent) {
-        val listView = service<ProjectManagerSettings>().state.viewMode == ProjectManagerSettings.ViewMode.LIST
-        e.presentation.icon = if (listView) ProjectManagerIcons.TagsView else ProjectManagerIcons.ListFiles
-        e.presentation.text = if (listView) "Switch to Tags View" else "Switch to List View"
-        e.presentation.description = e.presentation.text
     }
 }
 

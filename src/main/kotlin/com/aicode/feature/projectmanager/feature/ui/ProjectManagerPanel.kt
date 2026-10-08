@@ -37,25 +37,16 @@ import com.intellij.ui.ColoredTreeCellRenderer
 import com.intellij.ui.JBColor
 import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.components.JBLabel
-import com.intellij.ui.components.JBList
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.Tree
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.tree.TreeUtil
 import java.awt.BorderLayout
-import java.awt.CardLayout
-import java.awt.Dimension
-import java.awt.Font
 import java.awt.datatransfer.StringSelection
 import java.awt.event.ActionEvent
 import java.awt.event.KeyEvent
-import javax.swing.AbstractAction
-import javax.swing.DefaultListModel
-import javax.swing.JComboBox
 import javax.swing.JComponent
 import javax.swing.JPanel
-import javax.swing.KeyStroke
-import javax.swing.ListSelectionModel
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
 import javax.swing.JTree
@@ -63,43 +54,9 @@ import javax.swing.JTree
 class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(true, true) {
     private val manager = service<ProjectManagerService>()
     private val settings = service<ProjectManagerSettings>()
-    private var viewMode = settings.state.viewMode
-    private var listFilter = settings.state.listFilter
     private var sortBy = settings.state.sortBy
-    private var tagProjectSpacing = settings.state.tagProjectSpacing
-    private var listProjectSpacing = settings.state.listProjectSpacing
     private val excludedTagFilters = linkedSetOf<String>()
-    private val projectModel = DefaultListModel<ProjectItem>()
-    private val projectListGroups = mutableListOf<String>()
-    private val projectList = object : JBList<ProjectItem>(projectModel) {
-        override fun getScrollableTracksViewportWidth(): Boolean = true
-    }
     private val projectTree = Tree()
-    private val projectCards = JPanel(CardLayout())
-    private val listFilterComboBox = object : JComboBox<String>(arrayOf("all", "recent", "favorites")) {
-        override fun getPreferredSize(): Dimension {
-            val defaultSize = super.getPreferredSize()
-            val comboFont = font ?: return defaultSize
-            val textWidth = (0 until itemCount).maxOf { getFontMetrics(comboFont).stringWidth(getItemAt(it)) }
-            return Dimension(textWidth + JBUI.scale(40), defaultSize.height)
-        }
-    }.apply {
-        selectedIndex = listFilter.ordinal
-        isEnabled = viewMode == ProjectManagerSettings.ViewMode.LIST
-        isFocusable = false
-        addActionListener {
-            val selectedFilter = ProjectManagerSettings.ListFilter.values()[selectedIndex]
-            if (listFilter != selectedFilter) {
-                listFilter = selectedFilter
-                ProjectUiSupport.runInBackground(
-                    project,
-                    "Save list filter",
-                    { settings.updateListFilter(selectedFilter) },
-                )
-                refreshProjects(null)
-            }
-        }
-    }
     private val status = JBLabel()
     init {
         ApplicationManager.getApplication().messageBus.connect(project).subscribe(
@@ -148,7 +105,6 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
                 )
             },
             sortActions(),
-            ActionManager.getInstance().getAction("com.aicode.projectmanager.ToggleView"),
             manageTagsAction(),
             updateAction(),
             settingsAction(),
@@ -158,7 +114,6 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
         }.component
         return JPanel(BorderLayout()).apply {
             border = JBUI.Borders.empty(2, 4)
-            add(listFilterComboBox, BorderLayout.WEST)
             add(actionToolbar, BorderLayout.CENTER)
         }
     }
@@ -252,59 +207,11 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
     }
 
     private fun createContent(): JComponent = JPanel(BorderLayout()).apply {
-            projectCards.add(createListView(), LIST_CARD)
-            projectCards.add(JBScrollPane(projectTree), TAG_CARD)
-            add(projectCards, BorderLayout.CENTER)
+            add(JBScrollPane(projectTree), BorderLayout.CENTER)
             add(status.apply { border = JBUI.Borders.empty(4, 8) }, BorderLayout.SOUTH)
         }
 
-    private fun createListView() = JBScrollPane(projectList)
-
     private fun configureProjects() {
-        projectList.selectionMode = ListSelectionModel.SINGLE_SELECTION
-        val projectRenderer = ProjectListCellRenderer(project, showTags = false)
-        projectList.cellRenderer = javax.swing.ListCellRenderer { list, value, index, selected, hasFocus ->
-            val renderedItem = projectRenderer.getListCellRendererComponent(list, value, index, selected, hasFocus)
-            val item = JPanel(BorderLayout()).apply {
-                isOpaque = true
-                background = list.background
-                border = JBUI.Borders.empty(
-                    listProjectSpacing / 2,
-                    0,
-                    listProjectSpacing - listProjectSpacing / 2,
-                    0,
-                )
-                add(renderedItem, BorderLayout.CENTER)
-            }
-            val group = projectListGroups.getOrNull(index)
-            val startsGroup = index == 0 || group != projectListGroups.getOrNull(index - 1)
-            if (!startsGroup || group == null) {
-                item
-            } else {
-                JPanel(BorderLayout()).apply {
-                    isOpaque = true
-                    background = list.background
-                    border = JBUI.Borders.emptyTop(if (index == 0) 4 else 10)
-                    add(JBLabel(group).apply {
-                        font = font.deriveFont(Font.BOLD)
-                        foreground = JBColor.namedColor("Group.separatorForeground", JBColor.GRAY)
-                        border = JBUI.Borders.compound(
-                            JBUI.Borders.customLineTop(
-                                JBColor.namedColor("Group.separatorColor", JBColor(0xD0D0D0, 0x515151)),
-                            ),
-                            JBUI.Borders.empty(6, 9, 4, 9),
-                        )
-                    }, BorderLayout.NORTH)
-                    add(item, BorderLayout.CENTER)
-                }
-            }
-        }
-        projectList.addMouseListener(object : java.awt.event.MouseAdapter() {
-            override fun mouseClicked(e: java.awt.event.MouseEvent) {
-                if (e.clickCount == 2 && projectList.locationToIndex(e.point) >= 0) openSelected(defaultNewWindow())
-            }
-        })
-        PopupHandler.installPopupMenu(projectList, contextActions(), "ProjectManager.ContextMenu")
         projectTree.isRootVisible = false
         projectTree.showsRootHandles = true
         projectTree.rowHeight = 0
@@ -313,16 +220,7 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
                                                leaf: Boolean, row: Int, hasFocus: Boolean) {
                 val item = (value as? DefaultMutableTreeNode)?.userObject
                 icon = null
-                border = if (item is ProjectItem) {
-                    JBUI.Borders.empty(
-                        tagProjectSpacing / 2,
-                        0,
-                        tagProjectSpacing - tagProjectSpacing / 2,
-                        0,
-                    )
-                } else {
-                    JBUI.Borders.empty()
-                }
+                border = JBUI.Borders.empty()
                 when (item) {
                     is ProjectItem -> {
                         val current = isCurrentProject(item)
@@ -369,13 +267,7 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
     }
 
     private fun applySettings(value: ProjectManagerSettings.Data) {
-        viewMode = value.viewMode
-        listFilter = value.listFilter
         sortBy = value.sortBy
-        tagProjectSpacing = value.tagProjectSpacing
-        listProjectSpacing = value.listProjectSpacing
-        listFilterComboBox.selectedIndex = listFilter.ordinal
-        listFilterComboBox.isEnabled = viewMode == ProjectManagerSettings.ViewMode.LIST
         refresh()
     }
 
@@ -393,46 +285,10 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
         }
         tagFilteredProjects.forEach { item ->
             ProjectPathStatusCache.refresh(item.path) {
-                projectList.repaint()
                 projectTree.repaint()
             }
         }
-        if (isTagView()) {
-            refreshTagTree(preferredId, tagFilteredProjects, selectedTags)
-            (projectCards.layout as CardLayout).show(projectCards, TAG_CARD)
-            return
-        }
-        (projectCards.layout as CardLayout).show(projectCards, LIST_CARD)
-        val items = when (listFilter) {
-            ProjectManagerSettings.ListFilter.RECENT -> manager.sortProjects(tagFilteredProjects.filter { it.lastOpenedAt != null })
-            ProjectManagerSettings.ListFilter.FAVORITES -> manager.sortProjects(tagFilteredProjects.filter(ProjectItem::favorite))
-            ProjectManagerSettings.ListFilter.ALL -> manager.sortProjects(tagFilteredProjects)
-        }
-        val groupedItems = buildList {
-            (selectedTags - UNTAGGED_FILTER_KEY).sorted().forEach { tag ->
-                items.filter { tag in it.tags }.forEach { add(tag to it) }
-            }
-            if (UNTAGGED_FILTER_KEY in selectedTags) {
-                items.filter { it.tags.isEmpty() }.forEach { add(UNTAGGED_GROUP_NAME to it) }
-            }
-        }
-        projectModel.clear()
-        projectListGroups.clear()
-        groupedItems.forEach { (group, item) ->
-            projectListGroups.add(group)
-            projectModel.addElement(item)
-        }
-        preferredId?.let { id ->
-            groupedItems.indexOfFirst { it.second.id == id }.takeIf { it >= 0 }?.let { projectList.selectedIndex = it }
-        }
-        if (projectList.selectedIndex < 0 && !projectModel.isEmpty) projectList.selectedIndex = 0
-        projectList.emptyText.text = when {
-            listFilter == ProjectManagerSettings.ListFilter.RECENT -> "No recently opened projects"
-            listFilter == ProjectManagerSettings.ListFilter.FAVORITES -> "No favorite projects"
-            else -> "No saved projects. Use the Save icon to save the current project."
-        }
-        val groupCount = groupedItems.mapTo(linkedSetOf()) { it.first }.size
-        status.text = "${items.size} project${if (items.size == 1) "" else "s"}  ·  $groupCount groups"
+        refreshTagTree(preferredId, tagFilteredProjects, selectedTags)
     }
 
     private fun refreshTagTree(preferredId: String?, projects: List<ProjectItem>, selectedTags: Set<String>) {
@@ -546,10 +402,9 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
         abstract fun perform()
     }
 
-    private fun selected(): ProjectItem? = if (isTagView()) selectedTreeProject() else projectList.selectedValue
+    private fun selected(): ProjectItem? = selectedTreeProject()
     private fun selectedTreeProject() =
         (projectTree.lastSelectedPathComponent as? DefaultMutableTreeNode)?.userObject as? ProjectItem
-    private fun isTagView() = viewMode == ProjectManagerSettings.ViewMode.TAGS
 
     private fun openInTerminal(item: ProjectItem) {
         val terminalAction = ActionManager.getInstance().getAction("Terminal.OpenInTerminal")
@@ -678,14 +533,14 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
     private fun isCurrentProject(item: ProjectItem) =
         currentProjectPath()?.toAbsolutePath()?.normalize() == item.path.toAbsolutePath().normalize()
     private fun bindKey(key: Int, modifiers: Int, name: String, action: () -> Unit) {
-        projectList.getInputMap(JComponent.WHEN_FOCUSED).put(KeyStroke.getKeyStroke(key, modifiers), name)
-        projectList.actionMap.put(name, object : AbstractAction() { override fun actionPerformed(e: ActionEvent?) = action() })
+        projectTree.getInputMap(JComponent.WHEN_FOCUSED).put(javax.swing.KeyStroke.getKeyStroke(key, modifiers), name)
+        projectTree.actionMap.put(name, object : javax.swing.AbstractAction() {
+            override fun actionPerformed(e: ActionEvent?) = action()
+        })
     }
     private fun menuShortcutMask() = java.awt.Toolkit.getDefaultToolkit().menuShortcutKeyMaskEx
     private data class TagNode(val name: String)
     private companion object {
-        const val LIST_CARD = "projects"
-        const val TAG_CARD = "tags"
         const val UNTAGGED_GROUP_NAME = "Untagged"
         const val UNTAGGED_FILTER_KEY = "\u0000untagged"
     }

@@ -32,6 +32,7 @@ class ProjectJsonStore() {
     data class SettingsData(
         var defaultOpenMode: String = "CURRENT_WINDOW",
         var sortBy: String = "NAME",
+        // Legacy view fields remain readable and are merged back unchanged for existing project.json files.
         var selectedFilter: String = "ALL",
         var selectedView: String = "LIST",
         var selectedListFilter: String = "ALL",
@@ -235,4 +236,3 @@ class ProjectJsonStore() {
         fun defaultFile(): Path = Path(System.getProperty("user.home"), ".project-atlas", "project.json")
     }
 }
-

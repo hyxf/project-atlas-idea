@@ -254,13 +254,6 @@
                 <keyboard-shortcut keymap="$default" first-keystroke="control shift P"/>
                 <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift P"/>
             </action>
-            <action id="com.aicode.projectmanager.ToggleView"
-                    class="com.aicode.feature.projectmanager.feature.action.ToggleProjectViewAction"
-                    text="Switch Project View"
-                    description="Switch between list and tags views">
-                <keyboard-shortcut keymap="$default" first-keystroke="control shift T"/>
-                <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift T"/>
-            </action>
             <separator/>
             <action id="com.aicode.projectmanager.SaveCurrentProject"
                     class="com.aicode.feature.projectmanager.feature.action.SaveCurrentProjectAction"
