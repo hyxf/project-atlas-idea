@@ -13,4 +13,7 @@ object ProjectManagerIcons {
     @JvmField
     val ImportLocalProjects = IconLoader.getIcon("/icons/project/importLocalProjects.svg", ProjectManagerIcons::class.java)
 
+    @JvmField
+    val CheckForUpdates = IconLoader.getIcon("/icons/project/checkForUpdates.svg", ProjectManagerIcons::class.java)
+
 }

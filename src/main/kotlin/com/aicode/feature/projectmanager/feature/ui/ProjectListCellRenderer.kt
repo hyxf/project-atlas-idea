@@ -24,6 +24,7 @@ import javax.swing.ListCellRenderer
 class ProjectListCellRenderer(
     private val currentProject: Project,
     private val showTags: Boolean = true,
+    private val inlineTags: Boolean = false,
 ) : ListCellRenderer<ProjectItem> {
     override fun getListCellRendererComponent(
         list: JList<out ProjectItem>, value: ProjectItem, index: Int, selected: Boolean, hasFocus: Boolean,
@@ -53,9 +54,28 @@ class ProjectListCellRenderer(
                 foreground = JBColor.RED
             }
         }
+        val titleLine = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply {
+            isOpaque = false
+            add(title)
+            if (showTags && inlineTags) {
+                val tags = value.tags.ifEmpty { setOf(UNTAGGED_LABEL) }.sorted()
+                if (tags.isNotEmpty()) {
+                    add(JBLabel("  ·  ").apply {
+                        foreground = if (selected) rowForeground else JBColor.GRAY
+                    })
+                    add(JBLabel(tags.joinToString(", ")).apply {
+                        foreground = if (selected) {
+                            JBColor(0xEAF3FF, 0xD5E5F7)
+                        } else {
+                            JBColor.namedColor("ProjectManager.SearchTag.foreground", JBColor(0x3574A5, 0x8AB4D8))
+                        }
+                    })
+                }
+            }
+        }
         val header = JPanel(BorderLayout()).apply {
             isOpaque = false
-            add(title, BorderLayout.CENTER)
+            add(titleLine, BorderLayout.CENTER)
             add(state, BorderLayout.EAST)
         }
         val path = JBLabel(value.path.toString()).apply {
@@ -67,7 +87,7 @@ class ProjectListCellRenderer(
             isOpaque = false
             add(header)
             add(path)
-            if (showTags) {
+            if (showTags && !inlineTags) {
                 add(JPanel(FlowLayout(FlowLayout.LEFT, JBUI.scale(5), 0)).apply {
                     isOpaque = false
                     border = JBUI.Borders.emptyTop(3)
@@ -123,4 +143,3 @@ class ProjectListCellRenderer(
         const val UNTAGGED_LABEL = "Untagged"
     }
 }
-

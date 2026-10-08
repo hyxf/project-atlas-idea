@@ -44,7 +44,7 @@ class ProjectSearchDialog(
             override fun changedUpdate(e: DocumentEvent) = reload()
         })
         list.selectionMode = ListSelectionModel.SINGLE_SELECTION
-        list.cellRenderer = ProjectListCellRenderer(project)
+        list.cellRenderer = ProjectListCellRenderer(project, inlineTags = true)
         list.addMouseListener(object : java.awt.event.MouseAdapter() {
             override fun mouseClicked(e: java.awt.event.MouseEvent) {
                 if (e.clickCount == 2 && list.locationToIndex(e.point) >= 0) openSelected()

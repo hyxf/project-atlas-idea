@@ -164,7 +164,7 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
     private fun updateAction() = object : AnAction(
         "Check for Project Atlas Updates",
         "Check for and install a Project Atlas update",
-        AllIcons.Actions.Install,
+        ProjectManagerIcons.CheckForUpdates,
     ) {
         override fun actionPerformed(e: AnActionEvent) {
             ProjectAtlasPluginUpdater.checkForUpdate(project)
