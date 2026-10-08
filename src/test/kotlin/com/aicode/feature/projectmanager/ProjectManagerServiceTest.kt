@@ -6,7 +6,6 @@ import com.aicode.feature.projectmanager.feature.project.ProjectManagerService
 import com.aicode.feature.projectmanager.feature.project.ProjectImportOutcome
 import com.aicode.feature.projectmanager.feature.project.ProjectImportRequest
 import com.aicode.feature.projectmanager.feature.project.ProjectRepository
-import com.aicode.feature.projectmanager.settings.ProjectManagerSettings
 import java.nio.file.Path
 import java.nio.file.Files
 import java.time.Clock
@@ -66,35 +65,6 @@ class ProjectManagerServiceTest {
     }
 
     @Test
-    fun `search ranking prefers name prefix over tag and path`() {
-        val prefix = service.addProject("Payment", Path.of("build/one"))
-        service.addProject("Backend", Path.of("build/payment"), setOf("Payment"))
-        assertEquals(prefix.id, service.sortProjects(service.searchProjects("pay"), "pay").first().id)
-    }
-
-    @Test
-    fun `welcome projects include all items ordered by recent then name`() {
-        repository.add(project("never-b", "Beta", "build/beta", null))
-        repository.add(project("recent", "Recent", "build/recent", 200))
-        repository.add(project("older", "Older", "build/older", 100))
-        repository.add(project("never-a", "Alpha", "build/alpha", null))
-
-        assertEquals(
-            listOf("recent", "older", "never-a", "never-b"),
-            service.projectsByRecent().map(ProjectItem::id),
-        )
-    }
-
-    @Test
-    fun `projects can be sorted by each welcome screen option`() {
-        repository.add(project("beta", "Beta", "build/a", 100))
-        repository.add(project("alpha", "Alpha", "build/z", 200))
-
-        assertEquals(listOf("alpha", "beta"), service.sortProjects(service.projects(), ProjectManagerSettings.SortBy.NAME).map(ProjectItem::id))
-        assertEquals(listOf("beta", "alpha"), service.sortProjects(service.projects(), ProjectManagerSettings.SortBy.PATH).map(ProjectItem::id))
-        assertEquals(listOf("alpha", "beta"), service.sortProjects(service.projects(), ProjectManagerSettings.SortBy.RECENT).map(ProjectItem::id))
-    }
-
     @Test
     fun `missing project can be relocated without changing identity`() {
         val saved = service.addProject("Alpha", Path.of("build/old"))

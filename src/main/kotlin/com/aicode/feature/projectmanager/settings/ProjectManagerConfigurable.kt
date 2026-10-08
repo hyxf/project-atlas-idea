@@ -28,7 +28,6 @@ class ProjectManagerConfigurable : Configurable {
         val settings = service<ProjectManagerSettings>()
         val value = ProjectManagerSettings.Data(
             defaultOpenMode = openMode.selectedItem as ProjectManagerSettings.OpenMode,
-            sortBy = settings.state.sortBy,
         )
         ProgressManager.getInstance().run(object : Task.Modal(null, "Saving Project Atlas Settings", false) {
             override fun run(indicator: ProgressIndicator) = settings.update(value)

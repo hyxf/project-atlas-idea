@@ -1,7 +1,6 @@
 package com.aicode.feature.projectmanager.feature.project
 
 import com.aicode.feature.projectmanager.infrastructure.filesystem.ProjectPaths
-import com.aicode.feature.projectmanager.settings.ProjectManagerSettings
 import com.intellij.openapi.components.service
 import com.intellij.serviceContainer.NonInjectable
 import java.nio.file.Files
@@ -22,8 +21,6 @@ class ProjectManagerService() {
     }
 
     fun projects(): List<ProjectItem> = repository.getAll()
-
-    fun projectsByRecent(): List<ProjectItem> = sortProjects(projects(), ProjectManagerSettings.SortBy.RECENT)
 
     fun saveProject(name: String, path: Path, tags: Set<String>, favorite: Boolean): ProjectItem {
         val normalized = ProjectPaths.normalize(path)
@@ -129,43 +126,7 @@ class ProjectManagerService() {
         }
     }
 
-    fun sortProjects(items: List<ProjectItem>, query: String = ""): List<ProjectItem> {
-        if (query.isNotBlank()) return items.sortedWith(
-            compareByDescending<ProjectItem> { matchScore(it, query) }
-                .thenByDescending(ProjectItem::favorite)
-                .thenByDescending { it.lastOpenedAt ?: 0L }
-                .thenBy { it.name.lowercase() },
-        )
-        return sortProjects(items, service<ProjectManagerSettings>().state.sortBy)
-    }
-
-    fun sortProjects(items: List<ProjectItem>, sortBy: ProjectManagerSettings.SortBy): List<ProjectItem> = when (sortBy) {
-        ProjectManagerSettings.SortBy.NAME -> items.sortedWith(
-            compareBy<ProjectItem> { it.name.lowercase() }.thenBy { it.path.toString().lowercase() },
-        )
-        ProjectManagerSettings.SortBy.PATH -> items.sortedBy { it.path.toString().lowercase() }
-        ProjectManagerSettings.SortBy.RECENT -> items.sortedWith(
-            compareByDescending<ProjectItem> { it.lastOpenedAt ?: Long.MIN_VALUE }
-                .thenBy { it.name.lowercase() }
-                .thenBy { it.path.toString().lowercase() },
-        )
-    }
-
-    internal fun matchScore(project: ProjectItem, query: String): Int = query.trim().lowercase()
-        .split(Regex("\\s+")).filter(String::isNotEmpty).fold(0) { score, needle ->
-            val name = project.name.lowercase()
-            val points = when {
-                name.startsWith(needle) -> 100
-                name.contains(needle) -> 70
-                project.tags.any { it.lowercase().contains(needle) } -> 45
-                project.path.toString().lowercase().contains(needle) -> 25
-                else -> 0
-            }
-            score + points
-        }
-
     fun tags(): Set<String> = projects().flatMapTo(sortedSetOf()) { it.tags }
 
     private fun cleanTags(tags: Set<String>): Set<String> = tags.map(String::trim).filter(String::isNotEmpty).toSet()
 }
-

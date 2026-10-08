@@ -99,11 +99,10 @@ class ProjectSearchDialog(
     }
 
     private fun reload() {
-        val items = manager.sortProjects(manager.searchProjects(search.text), search.text)
+        val items = manager.searchProjects(search.text)
         model.clear()
         items.forEach(model::addElement)
         if (!model.isEmpty) list.selectedIndex = 0
         list.emptyText.text = if (search.text.isBlank()) "No saved projects" else "No matching projects"
     }
 }
-

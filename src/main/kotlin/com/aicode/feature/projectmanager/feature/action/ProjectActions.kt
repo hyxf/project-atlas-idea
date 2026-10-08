@@ -77,7 +77,7 @@ open class QuickOpenProjectAction(private val newWindow: Boolean = false) : Proj
         ProjectUiSupport.runInBackground(e.project, "Load projects", {
             service<ProjectJsonStore>().forceReload()
             service.projects()
-        }) { projects -> showChooser(e, service.sortProjects(projects)) }
+        }) { projects -> showChooser(e, projects) }
     }
 
     private fun showChooser(e: AnActionEvent, projects: List<ProjectItem>) {

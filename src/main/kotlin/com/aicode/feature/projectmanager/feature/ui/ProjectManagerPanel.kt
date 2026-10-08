@@ -54,7 +54,6 @@ import javax.swing.JTree
 class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(true, true) {
     private val manager = service<ProjectManagerService>()
     private val settings = service<ProjectManagerSettings>()
-    private var sortBy = settings.state.sortBy
     private val excludedTagFilters = linkedSetOf<String>()
     private val projectTree = Tree()
     private val status = JBLabel()
@@ -104,7 +103,6 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
                     project, "Refresh project.json", { service<ProjectJsonStore>().forceReload() }, { reloadFromStore() },
                 )
             },
-            sortActions(),
             manageTagsAction(),
             updateAction(),
             settingsAction(),
@@ -116,25 +114,6 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
             border = JBUI.Borders.empty(2, 4)
             add(actionToolbar, BorderLayout.CENTER)
         }
-    }
-
-    private fun sortActions() = DefaultActionGroup("Sort", "Sort projects", AllIcons.ObjectBrowser.Sorted).apply {
-        isPopup = true
-        add(sortAction("Name", ProjectManagerSettings.SortBy.NAME))
-        add(sortAction("Path", ProjectManagerSettings.SortBy.PATH))
-        add(sortAction("Recent", ProjectManagerSettings.SortBy.RECENT))
-    }
-
-    private fun sortAction(text: String, value: ProjectManagerSettings.SortBy) = object : ToggleAction(text) {
-        override fun isSelected(e: AnActionEvent) = sortBy == value
-        override fun setSelected(e: AnActionEvent, state: Boolean) {
-            if (state) {
-                sortBy = value
-                ProjectUiSupport.runInBackground(project, "Save sort setting", { settings.updateSortBy(value) })
-                refreshProjects()
-            }
-        }
-        override fun getActionUpdateThread() = ActionUpdateThread.EDT
     }
 
     private fun settingsAction() = object : AnAction(
@@ -224,7 +203,7 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
                 when (item) {
                     is ProjectItem -> {
                         val current = isCurrentProject(item)
-                        icon = if (item.favorite) ProjectManagerIcons.FavoriteFolder else AllIcons.Nodes.Folder
+                        icon = if (item.favorite) AllIcons.Nodes.Favorite else AllIcons.Nodes.Folder
                         append(
                             item.name,
                             if (current) SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES
@@ -272,7 +251,6 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
     }
 
     private fun applySettings(value: ProjectManagerSettings.Data) {
-        sortBy = value.sortBy
         refresh()
     }
 
@@ -303,12 +281,12 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
         var groupCount = selectedRealTags.size
         selectedRealTags.sorted().forEach { tag ->
             val tagNode = DefaultMutableTreeNode(TagNode(tag))
-            manager.sortProjects(projects.filter { tag in it.tags }).forEach {
+            projects.filter { tag in it.tags }.forEach {
                 tagNode.add(DefaultMutableTreeNode(it)); associationCount++
             }
             root.add(tagNode)
         }
-        val untaggedProjects = manager.sortProjects(projects.filter { it.tags.isEmpty() })
+        val untaggedProjects = projects.filter { it.tags.isEmpty() }
         if (UNTAGGED_FILTER_KEY in selectedTags && untaggedProjects.isNotEmpty()) {
             val untaggedNode = DefaultMutableTreeNode(TagNode(UNTAGGED_GROUP_NAME))
             untaggedProjects.forEach {

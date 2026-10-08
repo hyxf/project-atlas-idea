@@ -31,7 +31,6 @@ class ProjectJsonStore() {
 
     data class SettingsData(
         var defaultOpenMode: String = "CURRENT_WINDOW",
-        var sortBy: String = "NAME",
         // Legacy view fields remain readable and are merged back unchanged for existing project.json files.
         var selectedFilter: String = "ALL",
         var selectedView: String = "LIST",
@@ -157,7 +156,6 @@ class ProjectJsonStore() {
         val settingsJson = root.objectValue("settings")
         val settings = SettingsData(
             defaultOpenMode = settingsJson?.string("defaultOpenMode", "CURRENT_WINDOW") ?: "CURRENT_WINDOW",
-            sortBy = settingsJson?.string("sortBy", "NAME") ?: "NAME",
             selectedFilter = settingsJson?.string("selectedFilter", "ALL") ?: "ALL",
             selectedView = settingsJson?.string("selectedView", "LIST") ?: "LIST",
             selectedListFilter = settingsJson?.string("selectedListFilter", "ALL") ?: "ALL",

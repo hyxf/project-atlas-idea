@@ -15,17 +15,14 @@ fun interface ProjectManagerSettingsListener {
 
 class ProjectManagerSettings {
     enum class OpenMode { CURRENT_WINDOW, NEW_WINDOW }
-    enum class SortBy { NAME, PATH, RECENT }
     data class Data(
         var defaultOpenMode: OpenMode = OpenMode.CURRENT_WINDOW,
-        var sortBy: SortBy = SortBy.NAME,
     )
 
     val state: Data
         get() = service<ProjectJsonStore>().settings().let { stored ->
             Data(
                 runCatching { OpenMode.valueOf(stored.defaultOpenMode) }.getOrDefault(OpenMode.CURRENT_WINDOW),
-                parseSortBy(stored.sortBy),
             )
         }
 
@@ -35,7 +32,6 @@ class ProjectManagerSettings {
         store.replaceSettings(
             ProjectJsonStore.SettingsData(
                 defaultOpenMode = value.defaultOpenMode.name,
-                sortBy = value.sortBy.name,
                 selectedFilter = previous.selectedFilter,
                 selectedView = previous.selectedView,
                 selectedListFilter = previous.selectedListFilter,
@@ -46,14 +42,6 @@ class ProjectManagerSettings {
         ApplicationManager.getApplication().messageBus
             .syncPublisher(ProjectManagerSettingsListener.TOPIC)
             .settingsChanged(value)
-    }
-
-    fun updateSortBy(value: SortBy) = update(state.copy(sortBy = value))
-
-    private fun parseSortBy(value: String) = when (value) {
-        "RECENTLY_OPENED" -> SortBy.RECENT
-        "SMART" -> SortBy.NAME
-        else -> runCatching { SortBy.valueOf(value) }.getOrDefault(SortBy.NAME)
     }
 
 }

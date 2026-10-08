@@ -4,7 +4,6 @@ import com.aicode.feature.projectmanager.feature.project.ProjectItem
 import com.aicode.feature.projectmanager.feature.project.ProjectManagerService
 import com.aicode.feature.projectmanager.feature.ui.ProjectUiSupport
 import com.aicode.feature.projectmanager.infrastructure.persistence.ProjectJsonStore
-import com.aicode.feature.projectmanager.settings.ProjectManagerSettings
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.service
 import com.intellij.openapi.util.Disposer
@@ -33,7 +32,6 @@ import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import javax.swing.AbstractAction
 import javax.swing.DefaultListModel
-import javax.swing.JComboBox
 import javax.swing.JComponent
 import javax.swing.Icon
 import javax.swing.JPanel
@@ -73,7 +71,6 @@ private class ProjectManagerWelcomePanel(
     private val content = JPanel(contentLayout)
     private val status = JBLabel("Loading saved projects…", SwingConstants.CENTER)
     private val count = JBLabel()
-    private val sort = JComboBox(SortOption.values())
     private val search = SearchTextField(false)
     private var projects = emptyList<ProjectItem>()
     private var loadVersion = 0
@@ -84,9 +81,6 @@ private class ProjectManagerWelcomePanel(
         border = JBUI.Borders.empty(20, 24)
         background = UIUtil.getListBackground()
 
-        sort.selectedItem = SortOption.RECENT
-        sort.toolTipText = "Sort projects"
-        sort.addActionListener { showProjects() }
         search.border = JBUI.Borders.customLine(JBColor.border(), 0, 0, 1, 0)
         search.background = background
         search.textEditor.background = background
@@ -99,7 +93,6 @@ private class ProjectManagerWelcomePanel(
         })
         val headerActions = JBUI.Panels.simplePanel(JBUI.scale(12), 0)
             .addToLeft(count)
-            .addToRight(sort)
         headerActions.background = background
         val header = JPanel(BorderLayout(JBUI.scale(12), 0)).apply {
             background = this@ProjectManagerWelcomePanel.background
@@ -138,7 +131,7 @@ private class ProjectManagerWelcomePanel(
         contentLayout.show(content, STATUS_CARD)
         ProjectUiSupport.runInBackground(null, "Load projects for Welcome Screen", {
             service<ProjectJsonStore>().forceReload()
-            service<ProjectManagerService>().projectsByRecent()
+            service<ProjectManagerService>().projects()
         }) { projects ->
             if (version != loadVersion || disposed) return@runInBackground
             this.projects = projects
@@ -156,22 +149,20 @@ private class ProjectManagerWelcomePanel(
         if (projects.isEmpty()) return
         val selectedPath = projectList.selectedValue?.path
         val query = search.text
-        val sortBy = (sort.selectedItem as? SortOption ?: SortOption.RECENT).sortBy
         val manager = service<ProjectManagerService>()
         val filtered = manager.searchProjects(projects, query)
-        val sorted = manager.sortProjects(filtered, sortBy)
         model.clear()
-        sorted.forEach(model::addElement)
+        filtered.forEach(model::addElement)
         count.text = if (query.isBlank()) {
             "${projects.size} projects"
         } else {
             "${filtered.size} of ${projects.size} projects"
         }
-        if (sorted.isEmpty()) {
+        if (filtered.isEmpty()) {
             status.text = "No matching projects"
             contentLayout.show(content, STATUS_CARD)
         } else {
-            projectList.selectedIndex = sorted.indexOfFirst { it.path == selectedPath }.takeIf { it >= 0 } ?: 0
+            projectList.selectedIndex = filtered.indexOfFirst { it.path == selectedPath }.takeIf { it >= 0 } ?: 0
             contentLayout.show(content, PROJECTS_CARD)
         }
     }
@@ -280,15 +271,4 @@ private class ProjectManagerWelcomePanel(
         const val STATUS_CARD = "status"
     }
 
-    private enum class SortOption(
-        private val label: String,
-        val sortBy: ProjectManagerSettings.SortBy,
-    ) {
-        NAME("Name", ProjectManagerSettings.SortBy.NAME),
-        PATH("Path", ProjectManagerSettings.SortBy.PATH),
-        RECENT("Recent", ProjectManagerSettings.SortBy.RECENT);
-
-        override fun toString(): String = label
-    }
 }
-
