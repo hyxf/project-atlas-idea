@@ -58,10 +58,14 @@ class ProxyConfigStore(private val configPath: Path = defaultConfigPath()) {
         fun normalizeUrl(raw: String): String {
             val value = raw.trim()
             require(value.isNotEmpty()) { "Proxy URL must not be empty." }
-            val uri = try { URI(value) } catch (e: Exception) { throw IllegalArgumentException("Invalid proxy URL '$value'.", e) }
-            require(uri.scheme.equals("http", true) || uri.scheme.equals("https", true)) { "Proxy URL must use http:// or https://." }
+            val uri = try { URI(value) } catch (e: Exception) { throw IllegalArgumentException("Invalid proxy URL.", e) }
+            require(uri.scheme.equals("http", true)) { "Proxy URL must use http://. HTTPS proxies are not supported." }
             require(!uri.host.isNullOrBlank()) { "Proxy URL must include a valid host." }
-            return if (uri.rawPath == "/" && uri.rawQuery == null && uri.rawFragment == null) value.removeSuffix("/") else value
+            require(uri.rawUserInfo == null) { "Proxy URL must not include credentials; IDEA proxy authentication is not configured by Project Atlas." }
+            require(uri.rawPath.isNullOrEmpty() || uri.rawPath == "/") { "Proxy URL must not include a path." }
+            require(uri.rawQuery == null && uri.rawFragment == null) { "Proxy URL must not include a query or fragment." }
+            require(uri.port == -1 || uri.port in 1..65535) { "Proxy port must be between 1 and 65535." }
+            return value.removeSuffix("/")
         }
     }
 }

@@ -19,7 +19,6 @@ import com.intellij.util.ui.JBUI
 import com.intellij.util.net.HttpConfigurable
 import java.net.InetSocketAddress
 import java.net.Proxy
-import java.net.URLConnection
 import java.net.Socket
 import java.awt.BorderLayout
 import java.awt.Dimension
@@ -85,11 +84,17 @@ class CheckProxyAction : AnAction("Check Current Proxy") {
         ApplicationManager.getApplication().executeOnPooledThread {
             val result = runCatching { ProxyChecker().check(proxy.first, proxy.second) }
             ApplicationManager.getApplication().invokeLater {
-                val connected = result.isSuccess
+                val responseCode = result.getOrNull()
+                val connected = responseCode?.let { it in 200..299 } == true
                 ProxyHealthState.complete(endpointKey, connected)
                 notify(
                     project,
-                    if (connected) "Proxy connected" else "Proxy not connected",
+                    when {
+                        connected -> "Proxy connected (HTTP $responseCode)"
+                        responseCode == 407 -> "Proxy requires authentication (HTTP 407)."
+                        responseCode != null -> "Proxy check failed with HTTP $responseCode"
+                        else -> "Proxy not connected: ${result.exceptionOrNull()?.message ?: "connection failed"}"
+                    },
                     if (connected) NotificationType.INFORMATION else NotificationType.ERROR,
                 )
             }
@@ -257,9 +262,9 @@ class ProxyChecker(private val tcpConnect: (String, Int) -> Unit = ::connectTcp,
         private fun connectTcp(host: String, port: Int) { Socket().use { it.connect(InetSocketAddress(host, port), 5_000) } }
         private fun requestThroughProxy(host: String, port: Int): Int {
             val proxy = Proxy(Proxy.Type.HTTP, InetSocketAddress(host, port))
-            val connection = java.net.URI("https://www.google.com/generate_204").toURL().openConnection(proxy) as URLConnection
+            val connection = java.net.URI("https://www.google.com/generate_204").toURL().openConnection(proxy) as java.net.HttpURLConnection
             connection.connectTimeout = 5_000; connection.readTimeout = 5_000
-            return (connection as java.net.HttpURLConnection).responseCode.also { connection.disconnect() }
+            return try { connection.responseCode } finally { connection.disconnect() }
         }
     }
 }
