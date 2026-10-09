@@ -93,7 +93,7 @@ object ProjectAtlasPluginUpdater {
     private fun findUpdate(indicator: ProgressIndicator): CheckResult {
         val installed = PluginManagerCore.getPlugin(pluginId)
             ?: throw IllegalStateException("Project Atlas is not installed")
-        val candidates = RepositoryHelper.loadPlugins(UPDATE_REPOSITORY_URL, indicator)
+        val candidates = RepositoryHelper.loadPlugins(UPDATE_REPOSITORY_URL, null, indicator)
             .asSequence()
             .filter { it.pluginId == pluginId }
             .toList()
