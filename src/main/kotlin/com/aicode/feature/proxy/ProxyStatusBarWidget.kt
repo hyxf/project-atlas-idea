@@ -1,18 +1,21 @@
 package com.aicode.feature.proxy
 
-import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.wm.StatusBar
 import com.intellij.openapi.wm.StatusBarWidget
 import com.intellij.openapi.wm.StatusBarWidgetFactory
+import com.intellij.openapi.wm.CustomStatusBarWidget
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.IconLoader
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.ui.AnimatedIcon
+import com.intellij.ui.components.JBLabel
 import java.awt.event.MouseEvent
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
-import javax.swing.SwingConstants
 import javax.swing.Icon
+import javax.swing.JComponent
+import javax.swing.SwingUtilities
 
 class ProxyStatusBarWidgetFactory : StatusBarWidgetFactory {
     override fun getId() = ProxyStatusBarWidget.ID
@@ -22,21 +25,29 @@ class ProxyStatusBarWidgetFactory : StatusBarWidgetFactory {
     override fun createWidget(project: Project) = ProxyStatusBarWidget(project)
 }
 
-class ProxyStatusBarWidget(private val project: Project) : StatusBarWidget, StatusBarWidget.TextPresentation {
+class ProxyStatusBarWidget(private val project: Project) : StatusBarWidget, CustomStatusBarWidget {
     private var refreshTask: ScheduledFuture<*>? = null
     private var statusBar: StatusBar? = null
+    private val component = JBLabel().apply {
+        text = "Proxy: ${ProxyPlatform.currentLabel()}"
+        icon = PROXY_ICON
+        setIconTextGap(4)
+        toolTipText = "IDEA global HTTP proxy. Click to choose a proxy."
+        addMouseListener(object : java.awt.event.MouseAdapter() {
+            override fun mouseClicked(e: MouseEvent) {
+                if (SwingUtilities.isLeftMouseButton(e)) showProxySelection(e)
+            }
+        })
+    }
 
     override fun ID() = ID
-    override fun getPresentation(): StatusBarWidget.WidgetPresentation = this
-    override fun getText() = "Proxy: ${ProxyPlatform.currentLabel()}"
-    override fun getAlignment() = SwingConstants.CENTER.toFloat()
-    override fun getTooltipText() = "IDEA global HTTP proxy. Click to choose a proxy."
+    override fun getComponent(): JComponent = component
 
-    override fun getClickConsumer(): com.intellij.util.Consumer<MouseEvent> = com.intellij.util.Consumer {
+    private fun showProxySelection(event: MouseEvent) {
         val action = ProxyModeAction()
-        val context = com.intellij.ide.DataManager.getInstance().getDataContext(statusBar?.component)
+        val context = com.intellij.ide.DataManager.getInstance().getDataContext(component)
         action.actionPerformed(com.intellij.openapi.actionSystem.AnActionEvent.createFromAnAction(
-            action, it, com.intellij.openapi.actionSystem.ActionPlaces.STATUS_BAR_PLACE, context,
+            action, event, com.intellij.openapi.actionSystem.ActionPlaces.STATUS_BAR_PLACE, context,
         ))
     }
 
@@ -44,7 +55,10 @@ class ProxyStatusBarWidget(private val project: Project) : StatusBarWidget, Stat
         this.statusBar = statusBar
         refreshTask = AppExecutorUtil.getAppScheduledExecutorService().scheduleWithFixedDelay({
             ApplicationManager.getApplication().invokeLater {
-                if (!project.isDisposed) this.statusBar?.updateWidget(ID)
+                if (!project.isDisposed) {
+                    component.text = "Proxy: ${ProxyPlatform.currentLabel()}"
+                    this.statusBar?.updateWidget(ID)
+                }
             }
         }, 1, 1, TimeUnit.SECONDS)
     }
@@ -55,7 +69,10 @@ class ProxyStatusBarWidget(private val project: Project) : StatusBarWidget, Stat
         statusBar = null
     }
 
-    companion object { const val ID = "ProjectAtlas.ProxyStatus" }
+    companion object {
+        const val ID = "ProjectAtlas.ProxyStatus"
+        private val PROXY_ICON: Icon = IconLoader.getIcon("/icons/proxy.svg", ProxyStatusBarWidget::class.java)
+    }
 }
 
 class ProxyCheckStatusBarWidgetFactory : StatusBarWidgetFactory {
