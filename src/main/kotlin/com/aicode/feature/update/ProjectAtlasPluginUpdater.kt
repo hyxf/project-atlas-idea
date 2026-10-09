@@ -1,4 +1,4 @@
-package com.aicode.feature.projectmanager.feature.ui
+package com.aicode.feature.update
 
 import com.intellij.ide.plugins.IdeaPluginDescriptor
 import com.intellij.ide.plugins.PluginManagerCore
@@ -60,7 +60,7 @@ object ProjectAtlasPluginUpdater {
                 if (project.isDisposed) return
                 when (val currentResult = result) {
                     CheckResult.Latest -> NotificationGroupManager.getInstance()
-                        .getNotificationGroup("AICode.ProjectManager")
+                        .getNotificationGroup(NOTIFICATION_GROUP)
                         .createNotification("Project Atlas Is Up to Date", "You are running the latest version.", NotificationType.INFORMATION)
                         .notify(project)
 
@@ -113,7 +113,7 @@ object ProjectAtlasPluginUpdater {
 
     private fun confirmAndInstall(project: Project, update: CheckResult.Available) {
         val changeNotes = update.plugin.changeNotes?.trim().orEmpty().ifBlank { "No release notes are available for this version." }
-        NotificationGroupManager.getInstance().getNotificationGroup("AICode.ProjectManager")
+        NotificationGroupManager.getInstance().getNotificationGroup(NOTIFICATION_GROUP)
             .createNotification(
                 "A Project Atlas Update Is Available",
                 "Installed version: ${update.currentVersion}<br>" +
@@ -164,7 +164,7 @@ object ProjectAtlasPluginUpdater {
                     )
                     return
                 }
-                NotificationGroupManager.getInstance().getNotificationGroup("AICode.ProjectManager")
+                NotificationGroupManager.getInstance().getNotificationGroup(NOTIFICATION_GROUP)
                     .createNotification(
                         "Update Ready",
                         "Project Atlas ${plugin.version} is ready. Restart the IDE to use the new version.",
@@ -184,7 +184,7 @@ object ProjectAtlasPluginUpdater {
     }
 
     private fun notify(project: Project, title: String, content: String, type: NotificationType) {
-        NotificationGroupManager.getInstance().getNotificationGroup("AICode.ProjectManager")
+        NotificationGroupManager.getInstance().getNotificationGroup(NOTIFICATION_GROUP)
             .createNotification(title, content, type)
             .notify(project)
     }
@@ -195,6 +195,8 @@ object ProjectAtlasPluginUpdater {
         .replace("<", "&lt;")
         .replace(">", "&gt;")
         .replace("\n", "<br>")
+
+    private const val NOTIFICATION_GROUP = "AICode.ProjectManager"
 
     private sealed interface CheckResult {
         data object Latest : CheckResult

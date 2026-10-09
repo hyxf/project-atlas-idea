@@ -273,7 +273,7 @@
             </action>
             <separator/>
             <action id="com.aicode.projectmanager.CheckForUpdates"
-                    class="com.aicode.feature.projectmanager.feature.action.CheckForProjectAtlasUpdatesAction"
+                    class="com.aicode.feature.update.CheckForProjectAtlasUpdatesAction"
                     text="Check for Project Atlas Updates"
                     description="Check for and install a Project Atlas update"/>
         </group>

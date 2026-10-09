@@ -4,13 +4,11 @@ import com.aicode.feature.projectmanager.feature.project.ProjectItem
 import com.aicode.feature.projectmanager.feature.project.ProjectManagerService
 import com.aicode.feature.projectmanager.feature.ui.ProjectEditDialog
 import com.aicode.feature.projectmanager.feature.ui.ProjectManagerPanel
-import com.aicode.feature.projectmanager.feature.ui.ProjectAtlasPluginUpdater
 import com.aicode.feature.projectmanager.feature.ui.ProjectSearchDialog
 import com.aicode.feature.projectmanager.feature.ui.ProjectUiSupport
 import com.aicode.feature.projectmanager.feature.ui.ProjectImportUi
 import com.aicode.feature.projectmanager.feature.ui.ProjectPathStatusCache
 import com.aicode.feature.projectmanager.infrastructure.persistence.ProjectJsonStore
-import com.aicode.feature.projectmanager.ProjectManagerIcons
 import com.aicode.feature.projectmanager.settings.ProjectManagerSettings
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
@@ -35,18 +33,6 @@ abstract class ProjectManagerAction : AnAction(), DumbAware {
         val content = ToolWindowManager.getInstance(project).getToolWindow("Project Atlas: Projects")
             ?.contentManager?.contents?.firstOrNull()?.component
         (content as? ProjectManagerPanel)?.refresh()
-    }
-}
-
-class CheckForProjectAtlasUpdatesAction : AnAction(
-    "Check for Project Atlas Updates",
-    "Check for and install a Project Atlas update",
-    ProjectManagerIcons.CheckForUpdates,
-), DumbAware {
-    override fun getActionUpdateThread() = ActionUpdateThread.EDT
-
-    override fun actionPerformed(e: AnActionEvent) {
-        e.project?.let(ProjectAtlasPluginUpdater::checkForUpdate)
     }
 }
 
