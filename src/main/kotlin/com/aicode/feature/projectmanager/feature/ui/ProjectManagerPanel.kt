@@ -416,7 +416,10 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
     }
 
     private fun contextActions() = DefaultActionGroup().apply {
-        add(action("Open") { openSelected(false) }); add(action("Open in New Window") { openSelected(true) }); addSeparator()
+        add(action("Open") { openSelected(false) })
+        add(action("Open in New Window") { openSelected(true) })
+        add(openWithAction())
+        addSeparator()
         add(action("Edit Project…") { editSelected() })
         add(action("Duplicate Project…") { duplicateSelected() })
         add(action("Edit Tags…") { editTagsSelected() })
@@ -432,6 +435,54 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
         }) { locateSelected() }); addSeparator()
         add(action("Delete Project…") { deleteSelected() })
         add(action("Remove from Project Atlas…") { removeSelected() })
+    }
+
+    private fun openWithAction() = object : ActionGroup("Open With", "Open this project in an installed macOS application", null) {
+        init { isPopup = true }
+
+        override fun getChildren(e: AnActionEvent?): Array<AnAction> = availableApps().map { installed ->
+            object : ContextAction() {
+                override fun update(e: AnActionEvent) {
+                    super.update(e)
+                    e.presentation.text = installed.app.menuName
+                }
+
+                override fun perform() = openWith(installed)
+            }
+        }.toTypedArray()
+
+        override fun update(e: AnActionEvent) {
+            e.presentation.isVisible = availableApps().isNotEmpty()
+            e.presentation.isEnabled = e.presentation.isVisible
+        }
+
+        override fun getActionUpdateThread() = ActionUpdateThread.EDT
+    }
+
+    private fun availableApps(): List<MacOpenWithApps.InstalledApp> {
+        val item = selected() ?: return emptyList()
+        return MacOpenWithApps.installedApps().filter { installed ->
+            installed.app != MacOpenWithApps.App.XCODE || MacOpenWithApps.xcodeProject(item.path) != null
+        }
+    }
+
+    private fun openWith(installed: MacOpenWithApps.InstalledApp) {
+        val item = selected() ?: return
+        if (!item.path.toFile().isDirectory) {
+            ProjectUiSupport.notify(project, "Project path is missing or is not a directory: ${item.path}", NotificationType.WARNING)
+            return
+        }
+        val target = if (installed.app == MacOpenWithApps.App.XCODE) {
+            MacOpenWithApps.xcodeProject(item.path) ?: run {
+                ProjectUiSupport.notify(project, "No .xcworkspace or .xcodeproj was found in ${item.path}", NotificationType.WARNING)
+                return
+            }
+        } else item.path
+        runCatching {
+            ProcessBuilder("open", "-a", installed.bundle.toString(), "--", target.toString()).start()
+        }.onFailure {
+            ProjectUiSupport.report(project, "Open project with ${installed.app.menuName}", it)
+        }
     }
 
     private fun action(text: String, visible: () -> Boolean = { selected() != null }, action: () -> Unit) = object : ContextAction() {
