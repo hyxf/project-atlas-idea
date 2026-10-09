@@ -262,6 +262,11 @@
                 <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift COMMA"/>
             </action>
             <separator/>
+            <action id="com.aicode.action.OpenAICodeToolWindow"
+                    class="com.aicode.feature.ai.action.OpenAICodeToolWindowAction"
+                    text="Show AICode"
+                    description="Show or hide the AICode tool window"/>
+            <separator/>
             <action id="com.aicode.proxy.Mode" class="com.aicode.feature.proxy.ProxyModeAction" text="Proxy: Direct"/>
             <action id="com.aicode.proxy.Check" class="com.aicode.feature.proxy.CheckProxyAction"
                     text="Check Current Proxy"/>
