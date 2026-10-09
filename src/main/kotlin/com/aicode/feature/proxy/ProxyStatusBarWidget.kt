@@ -31,7 +31,7 @@ class ProxyStatusBarWidget(private val project: Project) : StatusBarWidget, Cust
     private val component = JBLabel().apply {
         text = "Proxy: ${ProxyPlatform.currentLabel()}"
         icon = PROXY_ICON
-        setIconTextGap(4)
+        setIconTextGap(3)
         toolTipText = "IDEA global HTTP proxy. Click to choose a proxy."
         addMouseListener(object : java.awt.event.MouseAdapter() {
             override fun mouseClicked(e: MouseEvent) {
