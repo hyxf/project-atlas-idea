@@ -261,7 +261,8 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
                             else SimpleTextAttributes.REGULAR_ATTRIBUTES,
                         )
                         if (current) {
-                            append(" · ✓", SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
+                            append("  ·  ", SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
+                            append("✓", SimpleTextAttributes(SimpleTextAttributes.STYLE_BOLD, JBColor(0x2E8B57, 0x66BB6A)))
                         }
                         if (ProjectPathStatusCache.isDirectory(item.path) == false) {
                             append("  Missing", SimpleTextAttributes.ERROR_ATTRIBUTES)
