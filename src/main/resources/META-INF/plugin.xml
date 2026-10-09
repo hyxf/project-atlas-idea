@@ -184,16 +184,6 @@
                     class="com.aicode.feature.git.action.CopyGitRemoteUrlAction"
                     text="Copy Remote URL"
                     description="Copy the current Git repository origin URL"/>
-            <action id="com.aicode.action.CreateChangelogAction"
-                    class="com.aicode.feature.git.action.CreateChangelogAction"
-                    text="Create or Update CHANGELOG.md..."
-                    description="Create or update CHANGELOG.md from local Git tags and commits"/>
-            <action id="com.aicode.action.GitTagReleaseAction"
-                    class="com.aicode.feature.git.action.GitTagReleaseAction"
-                    text="Create Release Tag..."
-                    description="Create and push the next semantic version Git tag">
-                <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="shift meta J"/>
-            </action>
         </group>
 
         <group id="com.aicode.action.GitToolsMainMenuGroup"
@@ -206,8 +196,6 @@
             <reference ref="com.aicode.action.OpenGitRemoteBranchAction"/>
             <separator/>
             <reference ref="com.aicode.action.CopyGitRemoteUrlAction"/>
-            <reference ref="com.aicode.action.CreateChangelogAction"/>
-            <reference ref="com.aicode.action.GitTagReleaseAction"/>
         </group>
 
         <action id="com.aicode.action.SelectCommonCommitMessageAction"
@@ -272,6 +260,17 @@
                     text="Check Current Proxy"/>
             <action id="com.aicode.proxy.EditConfig" class="com.aicode.feature.proxy.EditProxyConfigAction"
                     text="Open Proxy Configuration"/>
+            <separator/>
+            <action id="com.aicode.action.CreateChangelogAction"
+                    class="com.aicode.feature.git.action.CreateChangelogAction"
+                    text="Create or Update CHANGELOG.md..."
+                    description="Create or update CHANGELOG.md from local Git tags and commits"/>
+            <action id="com.aicode.action.GitTagReleaseAction"
+                    class="com.aicode.feature.git.action.GitTagReleaseAction"
+                    text="Create Release Tag..."
+                    description="Create and push the next semantic version Git tag">
+                <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="shift meta J"/>
+            </action>
             <separator/>
             <action id="com.aicode.projectmanager.CheckForUpdates"
                     class="com.aicode.feature.projectmanager.feature.action.CheckForProjectAtlasUpdatesAction"
