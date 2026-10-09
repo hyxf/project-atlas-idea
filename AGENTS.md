@@ -6,7 +6,7 @@
 
 ## 项目定位与技术栈
 
-本仓库是 Project Atlas IntelliJ IDEA 插件（仓库：`https://github.com/hyxf/project-atlas-idea`），提供 AI 代码上下文、Git/Terminal 常用操作与本地项目管理能力。AI 上下文功能维护项目根目录下的 `.aicode.json`、按上下文组管理文件，并导出 Markdown；项目管理数据由 `ProjectJsonStore` 保存至用户级的 `~/.project-manager/project.json`。项目使用 Kotlin 2.2.20、Java 17、Gradle Kotlin DSL、IntelliJ Platform Gradle Plugin 2.11.0，开发基线为 IntelliJ IDEA Community 2023.2（build 232）。
+本仓库是 Project Atlas IntelliJ IDEA 插件（仓库：`https://github.com/hyxf/project-atlas-idea`），提供 AI 代码上下文、Git 仓库导航与发布辅助、Terminal 常用命令、本地项目管理、HTTP 代理切换/检查和插件更新。AI 上下文维护项目根目录下的 `.aicode.json`，支持多上下文组与 Markdown 导出；项目管理数据由 `ProjectJsonStore` 保存至用户级的 `~/.project-manager/project.json`。技术栈为 Kotlin 2.2.20、Java 17、Gradle Kotlin DSL、IntelliJ Platform Gradle Plugin 2.11.0，最低兼容 IntelliJ IDEA Community 2023.2（build 232），插件声明兼容至 2025.3（build 253）。
 
 ## 目录与模块职责
 
@@ -21,10 +21,12 @@
 - `src/main/kotlin/com/aicode/feature/projectmanager/feature/action/`、`ui/`、`recent/`、`welcome/`：项目管理菜单动作、Tool Window、最近访问和欢迎页入口。
 - `src/main/kotlin/com/aicode/feature/projectmanager/infrastructure/`：项目 JSON 存储、持久化仓储、路径规范化、目录扫描、复制与删除。
 - `src/main/kotlin/com/aicode/feature/projectmanager/settings/`：项目管理的应用级设置与 Settings UI。
+- `src/main/kotlin/com/aicode/feature/git/`：远端 URL 解析与浏览器导航、常用提交信息、上下文差异、CHANGELOG 和语义化版本标签流程。
+- `src/main/kotlin/com/aicode/feature/terminal/`：常用命令配置及向 Terminal 插入命令/文件路径。
+- `src/main/kotlin/com/aicode/feature/proxy/`：代理配置、状态栏入口、IDE 代理切换与连接检查。
+- `src/main/kotlin/com/aicode/feature/update/`：自定义插件仓库的更新检查和 IDE 安装流程。
 - `src/main/resources/META-INF/plugin.xml`：服务、扩展点、监听器、动作和快捷键注册。
 - `src/main/resources/icons/`：插件 SVG 资源。
-
-`update_aicode_plugin.py` 是一次性维护脚本，不属于插件运行链路；修改前先确认它仍有用途，不要把它当作构建或发布入口。
 
 ## 核心架构与变更原则
 
@@ -40,6 +42,8 @@
 - 项目复制、删除、扫描、导入和 `project.json` 读写必须在后台任务或池化线程执行，完成后再切回 EDT 更新 Swing UI。
 - 项目路径比较前统一进行绝对路径规范化；新增、迁移和重定位都必须防止重复路径。
 - 修改项目管理持久化结构时保留 `schemaVersion` 迁移入口并兼容既有数据。写回时继续合并未知顶层、设置和项目字段；解析失败时保留最后一次有效数据并阻止写入，不得覆盖损坏文件。
+- 应用级配置分别由各功能服务负责；项目管理 JSON 位于 `~/.project-manager/project.json`，代理配置位于 `~/.project-atlas/proxy.json`。变更配置格式时检查旧格式兼容和损坏文件保护。
+- Git 发布辅助功能可执行本地 Git 操作并推送标签；涉及提交、推送或标签时遵循下方发版确认流程，不能因功能已提供 UI 而跳过检查。
 - 新增 Action、Service、Provider、Listener 或 Tool Window 时，同步更新 `plugin.xml`。
 - 不要静默吞掉新异常。向用户展示可操作的错误信息，并在适合的位置记录日志；不得记录文件正文、密钥或剪贴板内容。
 
@@ -52,14 +56,15 @@ GRADLE_USER_HOME=/Users/seven/.gradle
 ```
 
 ```bash
-./gradlew --offline clean build       # 编译、检查、测试并打包
+./gradlew --offline clean build       # 编译、检查、测试并打包（优先使用缓存依赖）
 ./gradlew runIde            # 启动安装了当前插件的沙箱 IDEA
 ./gradlew --offline test              # 运行全部自动化测试
 ./gradlew verifyPlugin      # 检查 IntelliJ API/二进制兼容性
 ./gradlew buildPlugin       # 输出 build/distributions/*.zip
+./gradlew runPluginVerifier -PpluginVerifierIdePath="/path/to/IntelliJ IDEA.app/Contents" # 使用本地 IDE 做额外验证
 ```
 
-日常调试优先使用 `runIde`，覆盖添加/移除文件、分组切换、Markdown 导出，以及文件重命名、移动、删除后的同步。构建依赖下载失败时先检查 JDK 17、代理与 Gradle 缓存，不要提交本机环境配置。
+日常调试优先使用 `runIde`，按改动覆盖 AI 上下文组和 VFS 同步、项目导入/编辑/删除与持久化、Git/Terminal 插入操作、代理切换/检查和更新流程。Gradle 默认以 IntelliJ IDEA 2023.2 为验证 IDE；额外验证其他版本时通过 `pluginVerifierIdePath` 指向本机 IDE。构建依赖下载失败时先检查 JDK 17、代理与 Gradle 缓存，不要提交本机环境配置。
 
 ## 编码规范
 
@@ -71,7 +76,7 @@ Kotlin/Java 使用 4 空格缩进；类名使用 PascalCase，方法和变量使
 
 当前仓库没有覆盖率门槛。新增可测试逻辑时，在 `src/test/kotlin/com/aicode/` 下建立与生产代码一致的包结构，测试类命名为 `*Test`，测试方法描述行为与结果。纯逻辑优先覆盖 `AICodeConfig`、`MarkdownBuilder` 和 `CodeLanguageResolver`；涉及 Project、VirtualFile、Action 或 Tool Window 的行为应使用 IntelliJ Platform test fixture，而不是模拟 SDK 内部实现。
 
-每次功能变更至少验证：正常路径、空分组、重复文件、缺失文件、旧配置迁移、非项目文件、二进制/忽略文件，以及 VFS 重命名或移动。若引入测试框架，显式添加 `testImplementation` 依赖并在 PR 中说明。
+按变更范围选择验证，不要要求无关模块重复执行完整场景。AI 上下文变更至少覆盖正常路径、空组、重复/缺失文件、旧配置迁移、非项目/二进制/忽略文件以及 VFS 重命名或移动。若引入测试框架，显式添加 `testImplementation` 依赖并在 PR 中说明。
 
 项目管理模块应按风险补充验证：
 

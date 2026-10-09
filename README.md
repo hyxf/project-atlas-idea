@@ -3,18 +3,18 @@
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![IntelliJ Platform](https://img.shields.io/badge/platform-IntelliJ-orange.svg)
 
-一款 IntelliJ IDEA 效率插件，用于管理 AI 代码上下文、常用 Git/Terminal 操作和本地项目集合。
+一款 IntelliJ IDEA 效率插件，整合 AI 代码上下文、Git 仓库导航、常用提交信息与 Terminal 命令、本地项目管理，以及 IDE 代理切换和插件更新。
 
 ---
 
 ## 🎯 插件简介
 
-Project Atlas 将 AI 代码上下文、常用 Git/Terminal 操作和本地项目管理整合到 IntelliJ IDEA 中。
-其中 AI 上下文功能会在项目根目录管理 `.aicode.json`，并支持按上下文组组织文件和导出 Markdown。
+Project Atlas 将 AI 代码上下文、Git/Terminal 工作流、本地项目管理和代理工具整合到 IntelliJ IDEA 中。
+AI 上下文功能会在项目根目录管理 `.aicode.json`，支持多个上下文组，并可将所选组或全部组导出为 Markdown。
 
 ### 🌐 HTTP/HTTPS 代理
 
-点击 IDEA 底部状态栏右侧的 **Proxy** 项，或从 **Tools → HTTP Proxy** 打开代理菜单，可在 Direct 和 `~/.project-atlas/proxy.json` 中的命名代理间切换、检查当前代理并打开配置文件。IDE 当前设置中的其他代理会作为 `system` 项显示。配置文件缺失时会创建 Local 默认项；支持 `{ "proxy": "http://..." }` 和 `"proxies"` 字符串数组旧格式。
+点击 IDEA 底部状态栏的 Project Atlas 代理状态，或从 **Tools → Project Atlas → Proxy** 打开菜单，可在 Direct 和 `~/.project-atlas/proxy.json` 中的命名代理间切换、检查当前 HTTP 代理并打开配置文件。IDE 当前设置中的其他代理会作为 `system` 项显示。配置文件缺失时会创建 Local 默认项；支持 `{ "proxy": "http://..." }` 和 `"proxies"` 字符串数组旧格式。PAC/SOCKS 等无法直接检查的代理会提示原因。
 
 ---
 
@@ -56,6 +56,18 @@ Project Atlas 将 AI 代码上下文、常用 Git/Terminal 操作和本地项目
 * 直接复制到系统剪贴板
 * 支持主流文件类型并带语法高亮
 * 导出完成后会提示包含的文件数量
+
+### 🔀 Git 与 Terminal 工具
+
+* 在 Project 视图或编辑器标签菜单中打开 Git 远端仓库主页、当前分支、所选文件或目录对应的远端页面，并复制 origin URL
+* 在 Git 提交信息输入区选择常用提交信息；可在 **Settings / Preferences → Tools → Common Commit Messages** 管理
+* 从 Terminal 的 **Common Commands...** 选择常用命令插入终端，或将当前剪贴板命令加入列表；可在 **Settings / Preferences → Tools → Common Commands** 管理
+* 在文件菜单中将选中文件的相对路径插入 Terminal，支持在光标处插入
+* 从 **Tools → Project Atlas** 生成或更新 CHANGELOG，并按语义化版本创建及推送 Git 标签
+
+### 🌐 插件更新
+
+可从 **Tools → Project Atlas → Check for Project Atlas Updates** 检查自定义插件仓库中的版本；发现更新后可通过 IDE 下载并安装，重启后生效。
 
 ---
 
@@ -130,7 +142,7 @@ https://hyxf.github.io/project-atlas-idea/updatePlugins.xml
 ### 设置与数据
 
 在 **Settings / Preferences → Tools → Project Atlas** 中可以设置默认在当前窗口或新窗口打开项目，
-以及列表视图与标签视图中的项目间距。排序方式、当前视图和列表筛选也会随使用状态保存。
+以及列表视图与标签视图中的项目间距。排序方式、当前视图和列表筛选也会随使用状态保存。项目搜索支持名称、绝对路径和标签，名称匹配优先；列表可按名称、路径、最近打开或最近保存排序。
 
 项目、标签和设置继续存储在以下用户级配置中，兼容原 Project Atlas 插件的数据：
 
@@ -149,8 +161,8 @@ Tool Window 工具栏可直接打开该文件。配置采用原子替换写入�
 
 ## 🔧 兼容性验证
 
-插件以 IntelliJ IDEA 2023.2（build 232）作为最低编译基线，并声明兼容至经过验证的
-IntelliJ IDEA 2025.3（build 253）分支。除常规构建外，可指定本地高版本 IDE 执行二进制兼容检查：
+插件以 IntelliJ IDEA 2023.2（build 232）作为最低兼容版本，并在插件描述符中声明兼容至
+2025.3（build 253）分支。构建配置默认验证 2023.2；可指定本地 IDE 安装目录执行额外的二进制兼容检查：
 
 ```bash
 ./gradlew runPluginVerifier -PpluginVerifierIdePath="/path/to/IntelliJ IDEA.app/Contents"
