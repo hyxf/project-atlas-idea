@@ -136,7 +136,6 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
                     project, "Refresh project.json", { service<ProjectJsonStore>().forceReload() }, { reloadFromStore() },
                 )
             },
-            updateAction(),
             settingsAction(),
         )
         val actionToolbar = ActionManager.getInstance().createActionToolbar("ProjectManager.Toolbar", actions, true).apply {
@@ -186,18 +185,6 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
     ) {
         override fun actionPerformed(e: AnActionEvent) {
             ShowSettingsUtil.getInstance().showSettingsDialog(project, ProjectManagerConfigurable::class.java)
-        }
-
-        override fun getActionUpdateThread() = ActionUpdateThread.EDT
-    }
-
-    private fun updateAction() = object : AnAction(
-        "Check for Project Atlas Updates",
-        "Check for and install a Project Atlas update",
-        ProjectManagerIcons.CheckForUpdates,
-    ) {
-        override fun actionPerformed(e: AnActionEvent) {
-            ProjectAtlasPluginUpdater.checkForUpdate(project)
         }
 
         override fun getActionUpdateThread() = ActionUpdateThread.EDT

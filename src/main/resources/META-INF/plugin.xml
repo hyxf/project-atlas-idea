@@ -30,8 +30,11 @@
                 displayType="BALLOON"
                 isLogByDefault="true"/>
         <notificationGroup id="AICode.Proxy" displayType="BALLOON" isLogByDefault="true"/>
-        <statusBarWidgetFactory id="ProjectAtlas.ProxyStatus" implementation="com.aicode.feature.proxy.ProxyStatusBarWidgetFactory"/>
-        <statusBarWidgetFactory id="ProjectAtlas.ProxyCheckStatus" implementation="com.aicode.feature.proxy.ProxyCheckStatusBarWidgetFactory" order="after ProjectAtlas.ProxyStatus"/>
+        <statusBarWidgetFactory id="ProjectAtlas.ProxyStatus"
+                                implementation="com.aicode.feature.proxy.ProxyStatusBarWidgetFactory"/>
+        <statusBarWidgetFactory id="ProjectAtlas.ProxyCheckStatus"
+                                implementation="com.aicode.feature.proxy.ProxyCheckStatusBarWidgetFactory"
+                                order="after ProjectAtlas.ProxyStatus"/>
 
         <!-- Tool Window -->
         <toolWindow
@@ -251,7 +254,6 @@
                 <keyboard-shortcut keymap="$default" first-keystroke="control shift P"/>
                 <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift P"/>
             </action>
-            <separator/>
             <action id="com.aicode.projectmanager.OpenToolWindow"
                     class="com.aicode.feature.projectmanager.feature.action.OpenProjectManagerAction"
                     text="Show Projects"
@@ -261,8 +263,15 @@
             </action>
             <separator/>
             <action id="com.aicode.proxy.Mode" class="com.aicode.feature.proxy.ProxyModeAction" text="Proxy: Direct"/>
-            <action id="com.aicode.proxy.Check" class="com.aicode.feature.proxy.CheckProxyAction" text="Check Current Proxy"/>
-            <action id="com.aicode.proxy.EditConfig" class="com.aicode.feature.proxy.EditProxyConfigAction" text="Open Proxy Configuration"/>
+            <action id="com.aicode.proxy.Check" class="com.aicode.feature.proxy.CheckProxyAction"
+                    text="Check Current Proxy"/>
+            <action id="com.aicode.proxy.EditConfig" class="com.aicode.feature.proxy.EditProxyConfigAction"
+                    text="Open Proxy Configuration"/>
+            <separator/>
+            <action id="com.aicode.projectmanager.CheckForUpdates"
+                    class="com.aicode.feature.projectmanager.feature.action.CheckForProjectAtlasUpdatesAction"
+                    text="Check for Project Atlas Updates"
+                    description="Check for and install a Project Atlas update"/>
         </group>
     </actions>
 
