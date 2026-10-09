@@ -275,7 +275,10 @@
             <action id="com.aicode.projectmanager.CheckForUpdates"
                     class="com.aicode.feature.update.CheckForProjectAtlasUpdatesAction"
                     text="Check for Project Atlas Updates"
-                    description="Check for and install a Project Atlas update"/>
+                    description="Check for and install a Project Atlas update">
+                <keyboard-shortcut keymap="$default" first-keystroke="control alt shift U"/>
+                <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt shift U"/>
+            </action>
         </group>
     </actions>
 
