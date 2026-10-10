@@ -1,6 +1,7 @@
 package com.aicode.feature.github.ui
 
 import com.aicode.feature.github.model.GitHubRepository
+import com.aicode.feature.github.icons.GitHubIcons
 import com.aicode.feature.github.persistence.GitHubConfigurationStore
 import com.aicode.feature.github.persistence.SavedGitRepository
 import com.aicode.feature.github.service.CloneCancelledException
@@ -78,7 +79,7 @@ class GitHubRepositoriesPanel(private val project: Project) : JPanel(BorderLayou
                     }
                     node?.userObject is Group -> {
                         val group = node.userObject as Group
-                        if (group.isLanguage) icon = AllIcons.Nodes.Package
+                        if (group.isLanguage) icon = GitHubIcons.LANGUAGE_GROUP
                         append("${group.title} (${group.count})", SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
                     }
                     else -> append(node?.userObject?.toString().orEmpty())
