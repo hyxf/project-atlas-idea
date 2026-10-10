@@ -2,6 +2,7 @@ package com.aicode.feature.projectmanager.feature.ui
 
 import com.aicode.feature.projectmanager.ProjectManagerIcons
 import com.aicode.feature.projectmanager.feature.project.ProjectItem
+import com.aicode.feature.projectmanager.feature.project.ProjectDataChangedListener
 import com.aicode.feature.projectmanager.feature.project.ProjectManagerService
 import com.aicode.feature.projectmanager.infrastructure.filesystem.ProjectDirectoryDeletion
 import com.aicode.feature.projectmanager.infrastructure.filesystem.ProjectDirectoryDuplicator
@@ -93,6 +94,14 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
             ProjectManagerSettingsListener { value ->
                 ApplicationManager.getApplication().invokeLater {
                     if (!project.isDisposed) applySettings(value)
+                }
+            },
+        )
+        ApplicationManager.getApplication().messageBus.connect(project).subscribe(
+            ProjectDataChangedListener.TOPIC,
+            ProjectDataChangedListener {
+                ApplicationManager.getApplication().invokeLater {
+                    if (!project.isDisposed) refresh()
                 }
             },
         )

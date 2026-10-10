@@ -16,6 +16,7 @@
       <li>Export all context files as Markdown code package</li>
       <li>Multiple Context Groups support</li>
       <li>Manage, search, tag, and quickly open local projects</li>
+      <li>Browse cached GitHub repositories, synchronize, save and clone into Projects</li>
       <li>Common Git and Terminal workflow shortcuts</li>
     </ul>
     ]]></description>
@@ -69,6 +70,12 @@
                 anchor="left"
                 icon="/icons/project/projectManager.svg"
                 factoryClass="com.aicode.feature.projectmanager.feature.ui.ProjectManagerToolWindowFactory"/>
+
+        <toolWindow
+                id="Project Atlas: GitHub Repositories"
+                anchor="right"
+                icon="/icons/github_tool_window.svg"
+                factoryClass="com.aicode.feature.github.ui.GitHubRepositoriesToolWindowFactory"/>
 
         <applicationConfigurable
                 id="com.aicode.settings.ProjectManager"
@@ -249,6 +256,31 @@
                 <keyboard-shortcut keymap="$default" first-keystroke="control shift COMMA"/>
                 <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift COMMA"/>
             </action>
+            <separator/>
+            <action id="com.aicode.github.RefreshRepositories"
+                    class="com.aicode.feature.github.action.RefreshGitHubRepositoriesAction"
+                    text="Refresh GitHub Repositories"
+                    description="Synchronize every repository from GitHub"
+                    icon="AllIcons.Actions.Refresh"/>
+            <action id="com.aicode.github.ExpandRepositories"
+                    class="com.aicode.feature.github.action.ExpandGitHubRepositoriesAction"
+                    text="Expand All GitHub Repositories"
+                    description="Expand all GitHub repository groups"
+                    icon="AllIcons.Actions.Expandall"/>
+            <action id="com.aicode.github.CollapseRepositories"
+                    class="com.aicode.feature.github.action.CollapseGitHubRepositoriesAction"
+                    text="Collapse All GitHub Repositories"
+                    description="Collapse GitHub repository language groups"
+                    icon="AllIcons.Actions.Collapseall"/>
+            <action id="com.aicode.github.OpenConfiguration"
+                    class="com.aicode.feature.github.action.OpenGitHubConfigurationAction"
+                    text="Open GitHub Configuration"
+                    description="Open github.json"/>
+            <action id="com.aicode.github.OpenSettings"
+                    class="com.aicode.feature.github.action.OpenGitHubSettingsAction"
+                    text="GitHub Settings"
+                    description="Edit GitHub token, user, and proxy settings"
+                    icon="AllIcons.General.Settings"/>
             <separator/>
             <action id="com.aicode.action.OpenAICodeToolWindow"
                     class="com.aicode.feature.ai.action.OpenAICodeToolWindowAction"

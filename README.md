@@ -73,6 +73,8 @@ AI 上下文功能会在项目根目录管理 `.aicode.json`，支持多个上�
 
 ### 🗂️ Project Atlas 项目管理
 
+**Project Atlas: GitHub Repositories** 是独立工具窗口，与 **Project Atlas: Projects** 分开。打开 GitHub 窗口时只读取本地缓存；点击 **Refresh** 才会验证 token 对应的用户并分页同步仓库。仓库按 Public / Private 和语言分组，支持展开/折叠、双击打开 GitHub、复制 SSH URL，以及通过 SSH 克隆并加入 Projects。此插件不提供 Git Repositories 浏览视图。
+
 * 保存当前项目，或选择任意本地目录添加项目
 * 扫描一个或多个目录，识别 IntelliJ、Git、Gradle、Maven、Node.js、Rust 和 Go 项目，预览后批量导入
 * 使用 **All / Recent / Favorites** 列表视图或 **Tags** 分组视图，并按名称、路径、最近打开或最近保存排序
@@ -152,6 +154,15 @@ https://hyxf.github.io/project-atlas-idea/updatePlugins.xml
 
 Tool Window 工具栏可直接打开该文件。配置采用原子替换写入，并保留插件无法识别的 JSON 字段；
 如果文件损坏，插件会继续使用最后一次有效数据并阻止覆盖写入，修复文件后刷新即可重新加载。
+
+GitHub 与 Git Repositories 继续使用 VS Code 扩展共享的数据格式：
+
+```text
+~/.project-atlas/github.json
+~/.project-atlas/repos.json
+```
+
+GitHub token、用户、代理和仓库缓存保存在 `github.json`。首次使用 GitHub 工具窗口时，只在文件不存在时创建配置文件，不会自动请求网络；从工具栏可编辑 GitHub 设置或打开配置文件。写入配置前会比较磁盘内容并使用同目录临时文件原子替换；检测到 VS Code 等外部编辑器并发修改时会提示重新加载后重试，不会静默覆盖。
 
 ---
 
