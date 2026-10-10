@@ -257,31 +257,6 @@
                 <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift COMMA"/>
             </action>
             <separator/>
-            <action id="com.aicode.github.RefreshRepositories"
-                    class="com.aicode.feature.github.action.RefreshGitHubRepositoriesAction"
-                    text="Refresh GitHub Repositories"
-                    description="Synchronize every repository from GitHub"
-                    icon="AllIcons.Actions.Refresh"/>
-            <action id="com.aicode.github.ExpandRepositories"
-                    class="com.aicode.feature.github.action.ExpandGitHubRepositoriesAction"
-                    text="Expand All GitHub Repositories"
-                    description="Expand all GitHub repository groups"
-                    icon="AllIcons.Actions.Expandall"/>
-            <action id="com.aicode.github.CollapseRepositories"
-                    class="com.aicode.feature.github.action.CollapseGitHubRepositoriesAction"
-                    text="Collapse All GitHub Repositories"
-                    description="Collapse GitHub repository language groups"
-                    icon="AllIcons.Actions.Collapseall"/>
-            <action id="com.aicode.github.OpenConfiguration"
-                    class="com.aicode.feature.github.action.OpenGitHubConfigurationAction"
-                    text="Open GitHub Configuration"
-                    description="Open github.json"/>
-            <action id="com.aicode.github.OpenSettings"
-                    class="com.aicode.feature.github.action.OpenGitHubSettingsAction"
-                    text="GitHub Settings"
-                    description="Edit GitHub token, user, and proxy settings"
-                    icon="AllIcons.General.Settings"/>
-            <separator/>
             <action id="com.aicode.action.OpenAICodeToolWindow"
                     class="com.aicode.feature.ai.action.OpenAICodeToolWindowAction"
                     text="Show AICode"
@@ -312,6 +287,32 @@
                 <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt shift U"/>
             </action>
         </group>
+
+        <!-- Registered for the GitHub Repositories tool window toolbar; intentionally outside Tools > Project Atlas. -->
+        <action id="com.aicode.github.RefreshRepositories"
+                class="com.aicode.feature.github.action.RefreshGitHubRepositoriesAction"
+                text="Refresh GitHub Repositories"
+                description="Synchronize every repository from GitHub"
+                icon="AllIcons.Actions.Refresh"/>
+        <action id="com.aicode.github.ExpandRepositories"
+                class="com.aicode.feature.github.action.ExpandGitHubRepositoriesAction"
+                text="Expand All GitHub Repositories"
+                description="Expand all GitHub repository groups"
+                icon="AllIcons.Actions.Expandall"/>
+        <action id="com.aicode.github.CollapseRepositories"
+                class="com.aicode.feature.github.action.CollapseGitHubRepositoriesAction"
+                text="Collapse All GitHub Repositories"
+                description="Collapse GitHub repository language groups"
+                icon="AllIcons.Actions.Collapseall"/>
+        <action id="com.aicode.github.OpenConfiguration"
+                class="com.aicode.feature.github.action.OpenGitHubConfigurationAction"
+                text="Open GitHub Configuration"
+                description="Open github.json"/>
+        <action id="com.aicode.github.OpenSettings"
+                class="com.aicode.feature.github.action.OpenGitHubSettingsAction"
+                text="GitHub Settings"
+                description="Edit GitHub token, user, and proxy settings"
+                icon="AllIcons.General.Settings"/>
     </actions>
 
     <projectListeners>
