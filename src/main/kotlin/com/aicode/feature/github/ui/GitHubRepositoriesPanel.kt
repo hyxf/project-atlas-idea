@@ -12,7 +12,6 @@ import com.aicode.feature.projectmanager.feature.ui.ProjectUiSupport.notify
 import com.aicode.feature.projectmanager.feature.project.ProjectDataChangedListener
 import com.intellij.ide.BrowserUtil
 import com.intellij.ide.actions.RevealFileAction
-import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.application.ApplicationManager
@@ -69,7 +68,7 @@ class GitHubRepositoriesPanel(private val project: Project) : JPanel(BorderLayou
                 icon = null
                 when {
                     repo != null -> {
-                        icon = AllIcons.Nodes.Folder
+                        icon = GitHubIcons.REPOSITORY
                         append(repo.fullName, SimpleTextAttributes.REGULAR_ATTRIBUTES)
                         repo.description?.takeIf(String::isNotBlank)?.let {
                             append(" · $it", SimpleTextAttributes.GRAYED_ATTRIBUTES)
