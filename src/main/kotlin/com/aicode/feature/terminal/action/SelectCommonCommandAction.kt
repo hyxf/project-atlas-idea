@@ -2,6 +2,7 @@ package com.aicode.feature.terminal.action
 
 import com.aicode.feature.terminal.service.CommonCommandService
 import com.aicode.feature.terminal.ui.CommonCommandPopup
+import com.aicode.feature.terminal.ui.CommonCommandRunner
 import com.aicode.feature.terminal.util.TerminalTextInserter
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
@@ -28,7 +29,7 @@ class SelectCommonCommandAction : AnAction(
         val targetContent = resolveTargetContent(e.getData(PlatformCoreDataKeys.CONTEXT_COMPONENT))
         val commands = try {
             CommonCommandService.getInstance().getCommands()
-        } catch (ex: IllegalStateException) {
+        } catch (ex: Exception) {
             notify(project, ex.message ?: "Failed to load common commands.", NotificationType.ERROR)
             return
         }
@@ -38,9 +39,7 @@ class SelectCommonCommandAction : AnAction(
         }
         CommonCommandPopup(project, commands) { command ->
             try {
-                if (!TerminalTextInserter.insert(project, command.command, targetContent)) {
-                    notify(project, "Open a terminal session before inserting a command.", NotificationType.WARNING)
-                }
+                CommonCommandRunner.run(project, command, false, targetContent)
             } catch (ex: Exception) {
                 LOG.warn("Failed to insert a common command into Terminal", ex)
                 notify(project, ex.message ?: "Failed to insert the command into Terminal.", NotificationType.ERROR)

@@ -61,8 +61,16 @@ AI 上下文功能会在项目根目录管理 `.aicode.json`，支持多个上�
 
 * 在 Project 视图或编辑器标签菜单中打开 Git 远端仓库主页、当前分支、所选文件或目录对应的远端页面，并复制 origin URL
 * 在 Git 提交信息输入区选择常用提交信息；可在 **Settings / Preferences → Tools → Common Commit Messages** 管理
-* 从 Terminal 的 **Common Commands...** 选择常用命令插入终端，或将当前剪贴板命令加入列表；可在 **Settings / Preferences → Tools → Common Commands** 管理
+* 在独立的 **Project Atlas: Common Commands** Tool Window 管理命令，或从 Terminal 的 **Common Commands...** 快速选择；按标签分组，支持多标签、拖动排序、变量和终端插入/执行
 * 在文件菜单中将选中文件的相对路径插入 Terminal，支持在光标处插入
+
+#### Common Commands
+
+从 **Tools → Project Atlas: Common Commands** 或右侧 Tool Window 打开。视图顶部工具栏提供新增、全局变量、打开原始 JSON、刷新、展开和折叠；右键命令可插入终端、执行、编辑、快速改标签或删除。双击命令会插入终端而不执行。删除只移除 `commoncmd.json` 中的记录。命令可出现在多个标签组；无标签命令显示在 **Untagged**。把一个命令拖到另一个命令上可调整 JSON `commands` 数组顺序。
+
+配置直接共享 `~/.project-atlas/commoncmd.json`。文件缺失时创建一次，写入 `git status`、`git diff`、`git log --oneline -10` 三个默认命令。新增/编辑支持多行命令和说明、标签、命令变量，并在弹框内列出每个变量的引用名、标签、类型和必填状态；全局变量使用同一变量编辑器。编辑器左侧可新增、选择或移除变量，右侧按类型显示必填、默认值、选项和路径种类；保存时会检查变量名、重复名称及选项默认值，取消则丢弃本次编辑。变量支持 `text`、`select`、`multiSelect`、`path` 及 `file`、`folder`、`any` 路径类型。在命令中写 `${name}` 即可在插入或执行时询问；未声明引用原样保留，取消则不发送命令。同名命令变量和全局变量会报错。输入值只用于本次操作，并按配置的终端 shell 转义。
+
+插入会复用当前终端会话，若没有会话则创建新会话，发送解析后的文本但不发送回车。为避免终端把嵌入的换行当作执行，多行命令只能通过 **Run Command** 执行。执行会在新终端会话发送命令和回车，使输出保持可见；工作目录优先使用当前编辑文件所在的项目内容根目录，否则使用项目根目录。Terminal 菜单的 **Add Current Command** 优先读取经典终端组件的选区，无法读取时使用剪贴板文本作为初始值；IntelliJ 2023.2 没有与 VS Code `terminal.copySelection` 对等的稳定选区 API，在新版终端中请先复制选区。保存时会检查未保存的 JSON 编辑器、文件外部变化和 `<文件名>.lock` 锁，冲突时请先保存或刷新。写入保留未知字段并使用同目录临时文件原子替换。
 * 从 **Tools → Project Atlas** 生成或更新 CHANGELOG，并按语义化版本创建及推送 Git 标签
 
 ### 🌐 插件更新

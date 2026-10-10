@@ -8,8 +8,63 @@ import com.intellij.ui.content.Content
 import java.io.UncheckedIOException
 import java.lang.reflect.InvocationTargetException
 import org.jetbrains.plugins.terminal.TerminalToolWindowManager
+import org.jetbrains.plugins.terminal.ShellTerminalWidget
+import org.jetbrains.plugins.terminal.TerminalProjectOptionsProvider
+import com.jediterm.terminal.model.SelectionUtil
 
 object TerminalTextInserter {
+    fun selectedText(project: Project, targetContent: Content? = null): String? {
+        val manager = TerminalToolWindowManager.getInstance(project)
+        val content = targetContent ?: manager.toolWindow?.contentManager?.selectedContent ?: return null
+        val widget = TerminalToolWindowManager.findWidgetByContent(content) ?: return null
+        val classic = ShellTerminalWidget.asShellJediTermWidget(widget)
+        val panel = classic?.terminalPanel
+        val selection = panel?.selection
+        if (selection != null) return SelectionUtil.getSelectionText(selection, panel.terminalTextBuffer)
+        val direct = readSelection(widget)
+        if (!direct.isNullOrBlank()) return direct
+        val reflectedPanel = runCatching { widget.javaClass.methods.firstOrNull { it.name == "getTerminalPanel" && it.parameterCount == 0 }?.invoke(widget) }.getOrNull()
+        return reflectedPanel?.let(::readSelection)?.takeUnless(String::isBlank)
+    }
+
+    private fun readSelection(target: Any): String? = runCatching {
+        target.javaClass.methods.firstOrNull { it.name == "getSelectedText" && it.parameterCount == 0 }
+            ?.invoke(target) as? String
+    }.getOrNull()
+
+    fun shellPath(project: Project, execute: Boolean, targetContent: Content? = null): String {
+        val manager = TerminalToolWindowManager.getInstance(project)
+        if (!execute) {
+            val content = targetContent ?: manager.toolWindow?.contentManager?.selectedContent
+            val widget = content?.let(TerminalToolWindowManager::findWidgetByContent)
+            val running = widget?.let(ShellTerminalWidget::asShellJediTermWidget)?.shellCommand?.firstOrNull()
+            if (!running.isNullOrBlank()) return running
+        }
+        return TerminalProjectOptionsProvider.getInstance(project).shellPath
+    }
+
+    fun insertOrCreate(project: Project, text: String, directory: String? = null, execute: Boolean = false,
+                       targetContent: Content? = null): Boolean {
+        val manager = TerminalToolWindowManager.getInstance(project)
+        val current = targetContent ?: manager.toolWindow?.contentManager?.selectedContent
+        val target = if (execute && directory != null) {
+            manager.createLocalShellWidget(directory, "Project Atlas")
+            manager.toolWindow?.contentManager?.selectedContent
+        } else current ?: run {
+            manager.createLocalShellWidget(directory ?: project.basePath.orEmpty(), "Project Atlas")
+            manager.toolWindow?.contentManager?.selectedContent
+        }
+        manager.toolWindow?.show()
+        return target != null && insert(project, payload(text, execute), target)
+    }
+
+    internal fun payload(text: String, execute: Boolean): String {
+        require(execute || text.none { it == '\n' || it == '\r' }) {
+            "Multiline commands cannot be inserted safely without running them. Use Run Command instead."
+        }
+        return text + if (execute) "\n" else ""
+    }
+
     fun insert(project: Project, text: String, targetContent: Content? = null): Boolean {
         val manager = TerminalToolWindowManager.getInstance(project)
         val contentManager = manager.toolWindow?.contentManager ?: return false

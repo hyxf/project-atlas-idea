@@ -6,6 +6,15 @@ import com.intellij.ui.content.ContentFactory
 import javax.swing.JPanel
 
 class TerminalTextInserterTest : BasePlatformTestCase() {
+    fun testInsertionDoesNotExecuteAndRunSendsReturn() {
+        assertEquals("git status", TerminalTextInserter.payload("git status", false))
+        assertEquals("git status\n", TerminalTextInserter.payload("git status", true))
+        try {
+            TerminalTextInserter.payload("echo one\necho two", false)
+            fail("Multiline insertion should be rejected")
+        } catch (_: IllegalArgumentException) {
+        }
+    }
     fun testExplicitTargetTakesPriorityOverSelectedContent() {
         val target = createContent("target")
         val selected = createContent("selected")

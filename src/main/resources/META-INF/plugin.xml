@@ -77,6 +77,12 @@
                 icon="/icons/github_tool_window.svg"
                 factoryClass="com.aicode.feature.github.ui.GitHubRepositoriesToolWindowFactory"/>
 
+        <toolWindow
+                id="Project Atlas: Common Commands"
+                anchor="right"
+                icon="/icons/commonCommandsToolWindow.svg"
+                factoryClass="com.aicode.feature.terminal.ui.CommonCommandsToolWindowFactory"/>
+
         <applicationConfigurable
                 id="com.aicode.settings.ProjectManager"
                 parentId="tools"
@@ -114,6 +120,23 @@
     </extensions>
 
     <actions>
+        <action id="com.aicode.action.OpenCommonCommandsAction"
+                class="com.aicode.feature.terminal.action.OpenCommonCommandsAction"
+                text="Project Atlas: Common Commands"
+                description="Open the Common Commands Tool Window">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+        <action id="com.aicode.commoncommands.Add" class="com.aicode.feature.terminal.action.AddCommonCommandAction" text="Add Command"/>
+        <action id="com.aicode.commoncommands.Variables" class="com.aicode.feature.terminal.action.ManageCommonCommandVariablesAction" text="Manage Global Variables"/>
+        <action id="com.aicode.commoncommands.Json" class="com.aicode.feature.terminal.action.OpenCommonCommandsJsonAction" text="Edit commoncmd.json"/>
+        <action id="com.aicode.commoncommands.Refresh" class="com.aicode.feature.terminal.action.RefreshCommonCommandsAction" text="Refresh"/>
+        <action id="com.aicode.commoncommands.Expand" class="com.aicode.feature.terminal.action.ExpandCommonCommandsAction" text="Expand All"/>
+        <action id="com.aicode.commoncommands.Collapse" class="com.aicode.feature.terminal.action.CollapseCommonCommandsAction" text="Collapse All"/>
+        <action id="com.aicode.commoncommands.Insert" class="com.aicode.feature.terminal.action.InsertCommonCommandAction" text="Insert into Terminal"/>
+        <action id="com.aicode.commoncommands.Run" class="com.aicode.feature.terminal.action.RunCommonCommandAction" text="Run Command"/>
+        <action id="com.aicode.commoncommands.Edit" class="com.aicode.feature.terminal.action.EditCommonCommandAction" text="Edit Command"/>
+        <action id="com.aicode.commoncommands.Tags" class="com.aicode.feature.terminal.action.EditCommonCommandTagsAction" text="Edit Tags"/>
+        <action id="com.aicode.commoncommands.Delete" class="com.aicode.feature.terminal.action.DeleteCommonCommandAction" text="Delete Command"/>
         <group id="AICodeGroup" text="Project Atlas - AICode" popup="true" icon="icons/aicode.svg">
             <!-- 1. Project View: Keep in CutCopyPaste group at the bottom -->
             <add-to-group group-id="CutCopyPasteGroup" anchor="last"/>

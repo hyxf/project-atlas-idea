@@ -2,6 +2,7 @@ package com.aicode.feature.terminal.action
 
 import com.aicode.feature.terminal.service.CommonCommandService
 import com.aicode.feature.terminal.ui.CommonCommandDialog
+import com.aicode.feature.terminal.util.TerminalTextInserter
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.ActionUpdateThread
@@ -20,14 +21,15 @@ class AddCurrentCommandAction : AnAction(
 ), DumbAware {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val command = CommonCommandDialog.showAdd(initialValueFromClipboard()) ?: return
+        val selection = TerminalTextInserter.selectedText(project)
+        val command = CommonCommandDialog.showAdd(initialValue(selection ?: initialValueFromClipboard())) ?: return
         try {
             if (CommonCommandService.getInstance().addCommand(command)) {
                 notify(project, "Added to Common Commands: ${command.command}", NotificationType.INFORMATION)
             } else {
                 notify(project, "The command already exists in Common Commands.", NotificationType.INFORMATION)
             }
-        } catch (ex: IllegalStateException) {
+        } catch (ex: Exception) {
             LOG.warn("Failed to add the current Terminal command", ex)
             notify(project, ex.message ?: "Failed to save the current command.", NotificationType.ERROR)
         }

@@ -26,6 +26,7 @@ import javax.swing.event.DocumentEvent
 class CommonCommandConfigurable : Configurable {
     private val service = CommonCommandService.getInstance()
     private var savedCommands: List<CommonCommand> = emptyList()
+    private var savedContents: String? = null
     private val workingCommands = mutableListOf<CommonCommand>()
     private var panel: JPanel? = null
     private var searchField: SearchTextField? = null
@@ -76,17 +77,18 @@ class CommonCommandConfigurable : Configurable {
 
     override fun apply() {
         try {
-            service.saveCommands(workingCommands)
+            service.saveCommands(workingCommands, savedContents)
             savedCommands = workingCommands.toList()
-        } catch (ex: IllegalStateException) {
+            savedContents = service.read().contents
+        } catch (ex: Exception) {
             throw ConfigurationException(ex.message ?: "Failed to save common commands.")
         }
     }
 
     override fun reset() {
         savedCommands = try {
-            service.getCommands()
-        } catch (ex: IllegalStateException) {
+            service.read().also { savedContents = it.contents }.commands
+        } catch (ex: Exception) {
             Messages.showErrorDialog(ex.message ?: "Failed to load common commands.", "Common Commands")
             emptyList()
         }
@@ -113,7 +115,6 @@ class CommonCommandConfigurable : Configurable {
 
     private fun editCommand() {
         val oldValue = commandList?.selectedValue ?: return
-        if (DefaultCommonCommands.contains(oldValue)) return
         val value = CommonCommandDialog.showEdit(oldValue) ?: return
         if (!validateUnique(value, oldValue)) return
         val index = workingCommands.indexOf(oldValue)
@@ -123,14 +124,17 @@ class CommonCommandConfigurable : Configurable {
 
     private fun removeCommand() {
         val selected = commandList?.selectedValue ?: return
-        if (DefaultCommonCommands.contains(selected)) return
+        if (Messages.showYesNoDialog(
+                "Delete this command record from commoncmd.json?\n\n${selected.command}",
+                "Delete Common Command", null,
+            ) != Messages.YES) return
         workingCommands.remove(selected)
         refreshList()
     }
 
     private fun canModifySelectedCommand(): Boolean {
         val selected = commandList?.selectedValue ?: return false
-        return !DefaultCommonCommands.contains(selected)
+        return selected in workingCommands
     }
 
     private fun moveSelectedCommand(offset: Int) {
