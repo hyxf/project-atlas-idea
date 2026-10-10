@@ -13,11 +13,15 @@ import com.aicode.feature.projectmanager.feature.project.ProjectDataChangedListe
 import com.intellij.ide.BrowserUtil
 import com.intellij.ide.actions.RevealFileAction
 import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.ActionUpdateThread
+import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileChooser.FileChooser
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
@@ -32,14 +36,13 @@ import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.treeStructure.Tree
 import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
+import java.awt.datatransfer.StringSelection
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.JComponent
-import javax.swing.JMenuItem
 import javax.swing.JPanel
-import javax.swing.JPopupMenu
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
 
@@ -94,9 +97,15 @@ class GitHubRepositoriesPanel(private val project: Project) : JPanel(BorderLayou
             }
             override fun mousePressed(event: MouseEvent) { if (event.isPopupTrigger) showPopup(event) }
             override fun mouseReleased(event: MouseEvent) { if (event.isPopupTrigger) showPopup(event) }
-            private fun showPopup(e: MouseEvent) { tree.getPathForLocation(e.x, e.y)?.lastPathComponent?.let { node ->
-                (node as? DefaultMutableTreeNode)?.let(repositoryByNode::get)?.let { popup(it).show(tree, e.x, e.y) }
-            } }
+            private fun showPopup(e: MouseEvent) {
+                val path = tree.getPathForLocation(e.x, e.y) ?: return
+                val node = path.lastPathComponent as? DefaultMutableTreeNode ?: return
+                val repo = repositoryByNode[node] ?: return
+                tree.selectionPath = path
+                ActionManager.getInstance()
+                    .createActionPopupMenu("GitHubRepositories.ContextMenu", contextActions(repo))
+                    .component.show(tree, e.x, e.y)
+            }
         })
         refreshCache()
     }
@@ -199,13 +208,18 @@ class GitHubRepositoriesPanel(private val project: Project) : JPanel(BorderLayou
     fun openConfigurationFromAction() = openConfig()
     fun openSettingsFromAction() = editSettings()
 
-    private fun popup(repo: GitHubRepository) = JPopupMenu().apply {
-        add(JMenuItem("Open on GitHub").apply { addActionListener { BrowserUtil.browse(repo.htmlUrl) } })
-        add(JMenuItem("Copy SSH URL").apply { addActionListener {
-            java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(java.awt.datatransfer.StringSelection(repo.sshUrl), null)
+    private fun contextActions(repo: GitHubRepository) = DefaultActionGroup().apply {
+        add(contextAction("Open on GitHub") { BrowserUtil.browse(repo.htmlUrl) })
+        add(contextAction("Copy SSH URL") {
+            CopyPasteManager.getInstance().setContents(StringSelection(repo.sshUrl))
             status.text = "Copied SSH URL for ${repo.fullName}."
-        } })
-        add(JMenuItem("Clone Repository…").apply { addActionListener { cloneRepository(repo) } })
+        })
+        add(contextAction("Clone Repository…") { cloneRepository(repo) })
+    }
+
+    private fun contextAction(text: String, perform: () -> Unit) = object : AnAction(text) {
+        override fun getActionUpdateThread() = ActionUpdateThread.EDT
+        override fun actionPerformed(e: AnActionEvent) = perform()
     }
 
     private fun cloneRepository(repo: GitHubRepository) {

@@ -434,11 +434,18 @@ class AICodePanel(private val project: Project) : JPanel(), Disposable {
         tree.addMouseListener(
             object : MouseAdapter() {
                 override fun mousePressed(e: MouseEvent) {
-                    if (SwingUtilities.isRightMouseButton(e))
-                        tree.getPathForLocation(e.x, e.y)?.let {
-                            tree.selectionPath = it
-                            showContextMenu(e, it.lastPathComponent as DefaultMutableTreeNode)
-                        }
+                    if (e.isPopupTrigger) showPopup(e)
+                }
+
+                override fun mouseReleased(e: MouseEvent) {
+                    if (e.isPopupTrigger) showPopup(e)
+                }
+
+                private fun showPopup(e: MouseEvent) {
+                    val path = tree.getPathForLocation(e.x, e.y) ?: return
+                    val node = path.lastPathComponent as? DefaultMutableTreeNode ?: return
+                    tree.selectionPath = path
+                    showContextMenu(e, node)
                 }
             }
         )
@@ -446,38 +453,29 @@ class AICodePanel(private val project: Project) : JPanel(), Disposable {
 
     private fun showContextMenu(e: MouseEvent, node: DefaultMutableTreeNode) {
         val data = node.userObject as? AICodeNodeData ?: return
-        val menu = JPopupMenu()
+        val actions = DefaultActionGroup()
         if (data.isDirectory && data.hasMissingFiles) {
             data.virtualFile?.let { directory ->
-                menu.add(
-                    JMenuItem("Add Missing Files").apply {
-                        icon = AllIcons.General.Add
-                        addActionListener { addMissingFiles(directory) }
-                    }
-                )
-                menu.addSeparator()
+                actions.add(simple("Add Missing Files", "Add missing files to context", AllIcons.General.Add) {
+                    addMissingFiles(directory)
+                })
+                actions.addSeparator()
             }
         }
-        menu.add(
-            JMenuItem(
-                    if (data.isDirectory) "Remove Directory from Context"
-                    else "Remove File from Context"
-                )
-                .apply {
-                    icon = AllIcons.Actions.Cancel
-                    addActionListener { removeNodeContext(node) }
-                }
-        )
+        actions.add(simple(
+            if (data.isDirectory) "Remove Directory from Context" else "Remove File from Context",
+            "Remove from context",
+            AllIcons.Actions.Cancel,
+        ) { removeNodeContext(node) })
         if (!data.isDirectory)
             data.fullRelativePath?.let { relativePath ->
-                menu.add(
-                    JMenuItem("Copy Relative Path").apply {
-                        icon = AllIcons.Actions.Copy
-                        addActionListener { copyRelativePath(relativePath) }
-                    }
-                )
+                actions.add(simple("Copy Relative Path", "Copy the path relative to the project", AllIcons.Actions.Copy) {
+                    copyRelativePath(relativePath)
+                })
             }
-        menu.show(tree, e.x, e.y)
+        ActionManager.getInstance()
+            .createActionPopupMenu("AICode.ContextMenu", actions)
+            .component.show(tree, e.x, e.y)
     }
 
     private fun copyRelativePath(path: String) {
