@@ -46,9 +46,12 @@ class CommonCommandsToolWindowFactory : ToolWindowFactory, DumbAware {
 }
 
 private data class CommandNode(val index: Int, val command: CommonCommand) {
+    val displayCommand: String = command.command.replace('\n', ' ')
+    val displayDescription: String = command.description.replace('\n', ' ')
+
     override fun toString(): String = buildString {
-        append(command.command.replace('\n', ' '))
-        if (command.description.isNotBlank()) append("  ·  ${command.description.replace('\n', ' ')}")
+        append(displayCommand)
+        if (displayDescription.isNotBlank()) append("  ·  $displayDescription")
     }
 }
 
@@ -67,6 +70,9 @@ class CommonCommandsPanel(private val project: Project, private val service: Com
         add(toolbar(), BorderLayout.NORTH)
         tree.isRootVisible = false
         tree.showsRootHandles = true
+        // All rows are single-line, so a fixed row height lets JTree use its large-model layout.
+        tree.rowHeight = JBUI.scale(22)
+        tree.isLargeModel = true
         tree.cellRenderer = object : ColoredTreeCellRenderer() {
             override fun customizeCellRenderer(
                 tree: JTree,
@@ -81,9 +87,9 @@ class CommonCommandsPanel(private val project: Project, private val service: Com
                 when (val item = node?.userObject) {
                     is CommandNode -> {
                         icon = CommonCommandsIcons.Command
-                        append(item.command.command.replace('\n', ' '), SimpleTextAttributes.REGULAR_ATTRIBUTES)
-                        item.command.description.takeIf(String::isNotBlank)?.let {
-                            append("  ·  ${it.replace('\n', ' ')}", SimpleTextAttributes.GRAYED_ATTRIBUTES)
+                        append(item.displayCommand, SimpleTextAttributes.REGULAR_ATTRIBUTES)
+                        item.displayDescription.takeIf(String::isNotBlank)?.let {
+                            append("  ·  $it", SimpleTextAttributes.GRAYED_ATTRIBUTES)
                         }
                     }
                     else -> {
