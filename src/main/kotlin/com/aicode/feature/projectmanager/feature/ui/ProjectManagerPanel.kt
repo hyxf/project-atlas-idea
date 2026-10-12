@@ -145,6 +145,14 @@ class ProjectManagerPanel(private val project: Project) : SimpleToolWindowPanel(
                     project, "Refresh project.json", { service<ProjectJsonStore>().forceReload() }, { reloadFromStore() },
                 )
             },
+            object : AnAction("Expand All", "Expand all project tag groups", AllIcons.Actions.Expandall) {
+                override fun actionPerformed(e: AnActionEvent) = TreeUtil.expandAll(projectTree)
+                override fun getActionUpdateThread() = ActionUpdateThread.EDT
+            },
+            object : AnAction("Collapse All", "Collapse all project tag groups", AllIcons.Actions.Collapseall) {
+                override fun actionPerformed(e: AnActionEvent) = TreeUtil.collapseAll(projectTree, 1)
+                override fun getActionUpdateThread() = ActionUpdateThread.EDT
+            },
             settingsAction(),
         )
         val actionToolbar = ActionManager.getInstance().createActionToolbar("ProjectManager.Toolbar", actions, true).apply {
