@@ -65,6 +65,12 @@ class CommonCommandService(
         entries.set(index, raw)
     }
 
+    fun removeCommand(index: Int, expected: String) = mutate(expected) { root ->
+        val entries = root.getAsJsonArray("commands")
+        require(index in 0 until entries.size()) { "Command no longer exists. Refresh the view." }
+        entries.remove(index)
+    }
+
     fun moveCommand(from: Int, to: Int, expected: String) = mutate(expected) { root ->
         val entries = root.getAsJsonArray("commands")
         require(from in 0 until entries.size() && to in 0 until entries.size()) { "Command no longer exists. Refresh the view." }
@@ -99,7 +105,10 @@ class CommonCommandService(
     private fun mutate(expected: String?, change: (JsonObject) -> Unit) {
         ensureFile()
         withLock {
-            if (hasUnsavedEditor()) error("Save or discard unsaved commoncmd.json changes before continuing.")
+            val hasUnsavedChanges = ApplicationManager.getApplication().runReadAction<Boolean> {
+                hasUnsavedEditor()
+            }
+            if (hasUnsavedChanges) error("Save or discard unsaved commoncmd.json changes before continuing.")
             val before = Files.readString(configPath, StandardCharsets.UTF_8)
             if (expected != null && before != expected) error("commoncmd.json changed externally. Refresh the view and try again.")
             val root = parseRoot(before)

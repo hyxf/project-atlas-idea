@@ -107,7 +107,7 @@ class CommonCommandConfigurable : Configurable {
     }
 
     private fun addCommand() {
-        val value = CommonCommandDialog.showAdd() ?: return
+        val value = CommonCommandDialog.showAdd(availableTags = workingCommands.flatMap { it.tags }) ?: return
         if (!validateUnique(value, null)) return
         workingCommands.add(value)
         refreshList(value)
@@ -115,7 +115,7 @@ class CommonCommandConfigurable : Configurable {
 
     private fun editCommand() {
         val oldValue = commandList?.selectedValue ?: return
-        val value = CommonCommandDialog.showEdit(oldValue) ?: return
+        val value = CommonCommandDialog.showEdit(oldValue, workingCommands.flatMap { it.tags }) ?: return
         if (!validateUnique(value, oldValue)) return
         val index = workingCommands.indexOf(oldValue)
         if (index >= 0) workingCommands[index] = value

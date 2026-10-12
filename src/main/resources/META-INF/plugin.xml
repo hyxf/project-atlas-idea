@@ -133,6 +133,7 @@
         <action id="com.aicode.commoncommands.Collapse" class="com.aicode.feature.terminal.action.CollapseCommonCommandsAction" text="Collapse All"/>
         <action id="com.aicode.commoncommands.Insert" class="com.aicode.feature.terminal.action.InsertCommonCommandAction" text="Insert into Terminal"/>
         <action id="com.aicode.commoncommands.Edit" class="com.aicode.feature.terminal.action.EditCommonCommandAction" text="Edit Command"/>
+        <action id="com.aicode.commoncommands.Remove" class="com.aicode.feature.terminal.action.RemoveCommonCommandAction" text="Remove Command"/>
         <group id="AICodeGroup" text="Project Atlas - AICode" popup="true" icon="icons/aicode.svg">
             <!-- 1. Project View: Keep in CutCopyPaste group at the bottom -->
             <add-to-group group-id="CutCopyPasteGroup" anchor="last"/>

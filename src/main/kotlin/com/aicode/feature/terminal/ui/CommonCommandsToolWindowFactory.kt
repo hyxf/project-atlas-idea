@@ -49,7 +49,6 @@ private data class CommandNode(val index: Int, val command: CommonCommand) {
     override fun toString(): String = buildString {
         append(command.command.replace('\n', ' '))
         if (command.description.isNotBlank()) append("  ·  ${command.description.replace('\n', ' ')}")
-        if (command.tags.isNotEmpty()) append("  [${command.tags.joinToString(", ")}]")
     }
 }
 
@@ -85,9 +84,6 @@ class CommonCommandsPanel(private val project: Project, private val service: Com
                         append(item.command.command.replace('\n', ' '), SimpleTextAttributes.REGULAR_ATTRIBUTES)
                         item.command.description.takeIf(String::isNotBlank)?.let {
                             append("  ·  ${it.replace('\n', ' ')}", SimpleTextAttributes.GRAYED_ATTRIBUTES)
-                        }
-                        item.command.tags.takeIf { it.isNotEmpty() }?.let {
-                            append("  [${it.joinToString(", ")}]", SimpleTextAttributes.GRAYED_ATTRIBUTES)
                         }
                     }
                     else -> {
@@ -129,7 +125,7 @@ class CommonCommandsPanel(private val project: Project, private val service: Com
                 tree.getPathForLocation(e.x, e.y)?.let { tree.selectionPath = it }
                 selectedNode() ?: return
                 val actions = DefaultActionGroup().apply {
-                    listOf("Insert", "Edit").forEach { name ->
+                    listOf("Insert", "Edit", "Remove").forEach { name ->
                         add(manager.getAction("com.aicode.commoncommands.$name"))
                     }
                 }
@@ -164,6 +160,7 @@ class CommonCommandsPanel(private val project: Project, private val service: Com
     fun hasSelection(): Boolean = selectedNode() != null
     fun addSelected() = addCommand()
     fun editSelected() { selectedNode()?.let(::edit) }
+    fun removeSelected() { selectedNode()?.let(::remove) }
     fun insertSelected() { selectedNode()?.let(::insert) }
     fun openRawJson() = openJson()
     fun expandAll() = expandAllTreeRows(tree)
@@ -181,6 +178,12 @@ class CommonCommandsPanel(private val project: Project, private val service: Com
     }
 
     private fun showDocument(document: CommonCommandDocument) {
+        val hadPreviousDocument = snapshot != null
+        val previousGroups = (0 until root.childCount).mapNotNull { index ->
+            (root.getChildAt(index) as? DefaultMutableTreeNode)?.let { group ->
+                group.userObject.toString() to tree.isExpanded(TreePath(group.path))
+            }
+        }.toMap()
         snapshot = document
         root.removeAllChildren()
         val groups = linkedMapOf<String, DefaultMutableTreeNode>()
@@ -192,7 +195,15 @@ class CommonCommandsPanel(private val project: Project, private val service: Com
         groups.values.forEach(root::add)
         if (groups.isEmpty()) root.add(DefaultMutableTreeNode("No common commands. Use Add or edit commoncmd.json."))
         model.reload()
-        for (row in 0 until tree.rowCount) tree.expandRow(row)
+        if (!hadPreviousDocument) {
+            expandAllTreeRows(tree)
+        } else {
+            groups.forEach { (tag, group) ->
+                val path = TreePath(group.path)
+                if (tag !in previousGroups || previousGroups[tag] == true) tree.expandPath(path)
+                else tree.collapsePath(path)
+            }
+        }
     }
 
     private fun showError(message: String) {
@@ -215,15 +226,29 @@ class CommonCommandsPanel(private val project: Project, private val service: Com
     }
 
     private fun addCommand() {
-        val command = CommonCommandDialog.showAdd() ?: return
+        val command = CommonCommandDialog.showAdd(availableTags = snapshot?.commands.orEmpty().flatMap { it.tags }) ?: return
         val expected = snapshot?.contents ?: return
         change { if (!service.addCommand(command, expected)) error("The command already exists.") }
     }
 
     private fun edit(node: CommandNode) {
-        val command = CommonCommandDialog.showEdit(node.command) ?: return
+        val command = CommonCommandDialog.showEdit(
+            node.command,
+            snapshot?.commands.orEmpty().flatMap { it.tags },
+        ) ?: return
         val expected = snapshot?.contents ?: return
         change { service.updateCommand(node.index, command, expected) }
+    }
+
+    private fun remove(node: CommandNode) {
+        if (Messages.showYesNoDialog(
+                project,
+                "Remove this command from Common Commands?\n\n${node.command.command}",
+                "Remove Common Command",
+                null,
+            ) != Messages.YES) return
+        val expected = snapshot?.contents ?: return
+        change { service.removeCommand(node.index, expected) }
     }
 
     private fun openJson() {

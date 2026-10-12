@@ -31,3 +31,4 @@ class ExpandCommonCommandsAction : CommonCommandsAction("Expand All", AllIcons.A
 class CollapseCommonCommandsAction : CommonCommandsAction("Collapse All", AllIcons.Actions.Collapseall) { override fun perform(panel: CommonCommandsPanel) = panel.collapseAll() }
 class InsertCommonCommandAction : CommonCommandsAction("Insert into Terminal", AllIcons.Actions.Menu_paste, true) { override fun perform(panel: CommonCommandsPanel) = panel.insertSelected() }
 class EditCommonCommandAction : CommonCommandsAction("Edit Command", AllIcons.Actions.Edit, true) { override fun perform(panel: CommonCommandsPanel) = panel.editSelected() }
+class RemoveCommonCommandAction : CommonCommandsAction("Remove Command", AllIcons.Actions.GC, true) { override fun perform(panel: CommonCommandsPanel) = panel.removeSelected() }
