@@ -81,6 +81,7 @@ class CommonCommandsPanel(private val project: Project, private val service: Com
                 val node = value as? DefaultMutableTreeNode
                 when (val item = node?.userObject) {
                     is CommandNode -> {
+                        icon = CommonCommandsIcons.Command
                         append(item.command.command.replace('\n', ' '), SimpleTextAttributes.REGULAR_ATTRIBUTES)
                         item.command.description.takeIf(String::isNotBlank)?.let {
                             append("  ·  ${it.replace('\n', ' ')}", SimpleTextAttributes.GRAYED_ATTRIBUTES)
@@ -89,11 +90,14 @@ class CommonCommandsPanel(private val project: Project, private val service: Com
                             append("  [${it.joinToString(", ")}]", SimpleTextAttributes.GRAYED_ATTRIBUTES)
                         }
                     }
-                    else -> append(
-                        item?.toString().orEmpty(),
-                        if (node?.level == 1) SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES
-                        else SimpleTextAttributes.REGULAR_ATTRIBUTES,
-                    )
+                    else -> {
+                        if (node?.level == 1) icon = CommonCommandsIcons.Tag
+                        append(
+                            item?.toString().orEmpty(),
+                            if (node?.level == 1) SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES
+                            else SimpleTextAttributes.REGULAR_ATTRIBUTES,
+                        )
+                    }
                 }
             }
         }
