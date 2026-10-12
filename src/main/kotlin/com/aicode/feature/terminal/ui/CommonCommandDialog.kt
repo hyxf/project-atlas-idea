@@ -6,13 +6,13 @@ import com.intellij.openapi.ui.ValidationInfo
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.JBTextArea
+import com.intellij.util.ui.FormBuilder
 import com.intellij.util.ui.JBFont
 import com.intellij.util.ui.JBUI
-import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.Font
 import javax.swing.JComponent
-import javax.swing.JPanel
+import javax.swing.ScrollPaneConstants
 
 object CommonCommandDialog {
     fun showAdd(initialValue: String = ""): CommonCommand? =
@@ -31,19 +31,22 @@ private class CommandEditorDialog(
         font = Font(Font.MONOSPACED, Font.PLAIN, font.size)
         lineWrap = true
         wrapStyleWord = true
-        border = JBUI.Borders.empty(6, 8)
+        border = JBUI.Borders.empty(4, 8)
+        accessibleContext.accessibleName = "Command"
     }
     private val descriptionEditor = JBTextArea(initialValue.description, 4, 56).apply {
         lineWrap = true
         wrapStyleWord = true
-        border = JBUI.Borders.empty(6, 8)
+        border = JBUI.Borders.empty(4, 8)
         emptyText.text = "What does this command do?"
+        accessibleContext.accessibleName = "Description"
     }
     private val tagsEditor = JBTextArea(initialValue.tags.joinToString(", "), 3, 56).apply {
         lineWrap = true
         wrapStyleWord = true
-        border = JBUI.Borders.empty(6, 8)
+        border = JBUI.Borders.empty(4, 8)
         emptyText.text = "e.g. Git, Build"
+        accessibleContext.accessibleName = "Tags"
     }
     private val centerPanel by lazy { buildCenterPanel() }
 
@@ -55,17 +58,17 @@ private class CommandEditorDialog(
 
     override fun createCenterPanel(): JComponent = centerPanel
 
-    private fun buildCenterPanel(): JComponent = JPanel(BorderLayout(0, JBUI.scale(12))).apply {
-        preferredSize = Dimension(JBUI.scale(700), JBUI.scale(540))
-        border = JBUI.Borders.empty(8, 8, 4, 8)
-
-        add(section("Command", scrollPane(commandEditor, 4)), BorderLayout.CENTER)
-        add(JPanel(BorderLayout(0, JBUI.scale(10))).apply {
-            preferredSize = Dimension(0, JBUI.scale(275))
-            add(section("Description", scrollPane(descriptionEditor, 4)), BorderLayout.CENTER)
-            add(section("Tags", scrollPane(tagsEditor, 3)), BorderLayout.SOUTH)
-        }, BorderLayout.SOUTH)
-    }
+    private fun buildCenterPanel(): JComponent = FormBuilder.createFormBuilder()
+        .addComponent(fieldLabel("Command"))
+        .addComponent(scrollPane(commandEditor))
+        .addVerticalGap(JBUI.scale(12))
+        .addComponent(fieldLabel("Description"))
+        .addComponent(scrollPane(descriptionEditor))
+        .addVerticalGap(JBUI.scale(12))
+        .addComponent(fieldLabel("Tags (comma separated)"))
+        .addComponent(scrollPane(tagsEditor))
+        .panel
+        .apply { border = JBUI.Borders.empty(8, 12, 4, 12) }
 
     override fun getPreferredFocusedComponent(): JComponent = commandEditor
 
@@ -80,14 +83,13 @@ private class CommandEditorDialog(
         }
     }
 
-    private fun section(title: String, component: JComponent): JPanel = JPanel(BorderLayout(0, JBUI.scale(7))).apply {
-        add(JBLabel(title).apply { font = JBFont.label().asBold() }, BorderLayout.NORTH)
-        add(component, BorderLayout.CENTER)
-    }
+    private fun fieldLabel(text: String) = JBLabel(text).apply { font = JBFont.label().asBold() }
 
-    private fun scrollPane(editor: JBTextArea, rows: Int) = JBScrollPane(editor).apply {
-        val height = editor.getFontMetrics(editor.font).height * rows + JBUI.scale(16)
-        preferredSize = Dimension(0, height)
-        minimumSize = Dimension(0, height)
+    private fun scrollPane(editor: JBTextArea) = JBScrollPane(
+        editor,
+        ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+        ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER,
+    ).apply {
+        preferredSize = Dimension(JBUI.scale(620), editor.preferredSize.height + JBUI.scale(8))
     }
 }

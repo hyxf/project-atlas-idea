@@ -20,12 +20,13 @@ class CommonCommandDialogLayoutTest : BasePlatformTestCase() {
         val descriptionEditor = field(dialog, "descriptionEditor") as JBTextArea
         val descriptionViewport = descriptionEditor.parent as JViewport
         val tagsEditor = field(dialog, "tagsEditor") as JBTextArea
+        val tagsViewport = tagsEditor.parent as JViewport
         assertEquals(4, commandEditor.rows)
         assertEquals(4, descriptionEditor.rows)
         assertEquals(3, tagsEditor.rows)
         assertTrue(commandViewport.height >= commandEditor.getFontMetrics(commandEditor.font).height * 4)
         assertTrue(descriptionViewport.height >= descriptionEditor.getFontMetrics(descriptionEditor.font).height * 4)
-        assertTrue(tagsEditor.isVisible)
+        assertTrue(tagsViewport.height >= tagsEditor.getFontMetrics(tagsEditor.font).height * 3)
     }
 
     private fun construct(name: String, types: Array<Class<*>>, vararg args: Any): Any {
