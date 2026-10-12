@@ -1,42 +1,31 @@
 package com.aicode.feature.terminal.ui
 
 import com.aicode.feature.terminal.model.CommonCommand
-import com.aicode.feature.terminal.model.CommonCommandVariable
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.ui.components.JBTextArea
 import java.awt.Component
 import java.awt.Container
 import javax.swing.JComponent
 import javax.swing.JViewport
 
 class CommonCommandDialogLayoutTest : BasePlatformTestCase() {
-    fun testCommandEditorKeepsCommandAndVariablesVisible() {
+    fun testCommandEditorKeepsCommandAndDetailsVisible() {
         val dialog = construct("CommandEditorDialog", arrayOf(String::class.java, CommonCommand::class.java),
-            "Edit Command", CommonCommand("git status", variables = listOf(CommonCommandVariable("branch", "text", "Branch"))))
+            "Edit Command", CommonCommand("git status"))
         val panel = centerPanel(dialog)
         layout(panel)
 
-        val variableList = field(dialog, "variablesList") as JComponent
-        val commandEditor = field(dialog, "commandEditor") as JComponent
+        val commandEditor = field(dialog, "commandEditor") as JBTextArea
         val commandViewport = commandEditor.parent as JViewport
-        assertTrue(commandViewport.height >= 70)
-        assertTrue(commandViewport.height <= 130)
-        assertTrue(variableList.height >= 90)
-        assertTrue(variableList.width >= 250)
-    }
-
-    fun testVariableEditorKeepsListAndFieldsVisible() {
-        val dialog = construct("VariablesDialog", arrayOf(List::class.java, String::class.java),
-            listOf(CommonCommandVariable("branch", "select", "Branch", options = listOf("main", "dev"))), "Command Variables")
-        val panel = centerPanel(dialog)
-        layout(panel)
-
-        val list = field(dialog, "list") as JComponent
-        val name = field(dialog, "nameField") as JComponent
-        val options = field(dialog, "optionsField") as JComponent
-        assertTrue(list.width >= 150)
-        assertTrue(name.width >= 200)
-        assertTrue(options.isVisible)
-        assertTrue(options.height >= 30)
+        val descriptionEditor = field(dialog, "descriptionEditor") as JBTextArea
+        val descriptionViewport = descriptionEditor.parent as JViewport
+        val tagsEditor = field(dialog, "tagsEditor") as JBTextArea
+        assertEquals(4, commandEditor.rows)
+        assertEquals(4, descriptionEditor.rows)
+        assertEquals(3, tagsEditor.rows)
+        assertTrue(commandViewport.height >= commandEditor.getFontMetrics(commandEditor.font).height * 4)
+        assertTrue(descriptionViewport.height >= descriptionEditor.getFontMetrics(descriptionEditor.font).height * 4)
+        assertTrue(tagsEditor.isVisible)
     }
 
     private fun construct(name: String, types: Array<Class<*>>, vararg args: Any): Any {

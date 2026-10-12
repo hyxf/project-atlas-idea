@@ -39,7 +39,7 @@ class SelectCommonCommandAction : AnAction(
         }
         CommonCommandPopup(project, commands) { command ->
             try {
-                CommonCommandRunner.run(project, command, false, targetContent)
+                CommonCommandRunner.insert(project, command, targetContent)
             } catch (ex: Exception) {
                 LOG.warn("Failed to insert a common command into Terminal", ex)
                 notify(project, ex.message ?: "Failed to insert the command into Terminal.", NotificationType.ERROR)

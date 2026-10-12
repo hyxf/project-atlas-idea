@@ -9,7 +9,6 @@ import java.io.UncheckedIOException
 import java.lang.reflect.InvocationTargetException
 import org.jetbrains.plugins.terminal.TerminalToolWindowManager
 import org.jetbrains.plugins.terminal.ShellTerminalWidget
-import org.jetbrains.plugins.terminal.TerminalProjectOptionsProvider
 import com.jediterm.terminal.model.SelectionUtil
 
 object TerminalTextInserter {
@@ -32,37 +31,24 @@ object TerminalTextInserter {
             ?.invoke(target) as? String
     }.getOrNull()
 
-    fun shellPath(project: Project, execute: Boolean, targetContent: Content? = null): String {
-        val manager = TerminalToolWindowManager.getInstance(project)
-        if (!execute) {
-            val content = targetContent ?: manager.toolWindow?.contentManager?.selectedContent
-            val widget = content?.let(TerminalToolWindowManager::findWidgetByContent)
-            val running = widget?.let(ShellTerminalWidget::asShellJediTermWidget)?.shellCommand?.firstOrNull()
-            if (!running.isNullOrBlank()) return running
-        }
-        return TerminalProjectOptionsProvider.getInstance(project).shellPath
-    }
-
-    fun insertOrCreate(project: Project, text: String, directory: String? = null, execute: Boolean = false,
+    fun insertOrCreate(project: Project, text: String, directory: String? = null,
                        targetContent: Content? = null): Boolean {
+        val safeText = payload(text)
         val manager = TerminalToolWindowManager.getInstance(project)
         val current = targetContent ?: manager.toolWindow?.contentManager?.selectedContent
-        val target = if (execute && directory != null) {
-            manager.createLocalShellWidget(directory, "Project Atlas")
-            manager.toolWindow?.contentManager?.selectedContent
-        } else current ?: run {
+        val target = current ?: run {
             manager.createLocalShellWidget(directory ?: project.basePath.orEmpty(), "Project Atlas")
             manager.toolWindow?.contentManager?.selectedContent
         }
         manager.toolWindow?.show()
-        return target != null && insert(project, payload(text, execute), target)
+        return target != null && insert(project, safeText, target)
     }
 
-    internal fun payload(text: String, execute: Boolean): String {
-        require(execute || text.none { it == '\n' || it == '\r' }) {
-            "Multiline commands cannot be inserted safely without running them. Use Run Command instead."
+    internal fun payload(text: String): String {
+        require(text.none { it == '\n' || it == '\r' }) {
+            "Multiline commands cannot be inserted safely into Terminal."
         }
-        return text + if (execute) "\n" else ""
+        return text
     }
 
     fun insert(project: Project, text: String, targetContent: Content? = null): Boolean {

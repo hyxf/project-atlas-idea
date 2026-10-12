@@ -118,14 +118,14 @@ class CommonCommandsPanel(private val project: Project, private val service: Com
             override fun mousePressed(e: java.awt.event.MouseEvent) = popup(e)
             override fun mouseReleased(e: java.awt.event.MouseEvent) = popup(e)
             override fun mouseClicked(e: java.awt.event.MouseEvent) {
-                if (e.clickCount == 2 && SwingUtilities.isLeftMouseButton(e)) selectedNode()?.let { run(it, false) }
+                if (e.clickCount == 2 && SwingUtilities.isLeftMouseButton(e)) selectedNode()?.let(::insert)
             }
             private fun popup(e: java.awt.event.MouseEvent) {
                 if (!e.isPopupTrigger) return
                 tree.getPathForLocation(e.x, e.y)?.let { tree.selectionPath = it }
                 selectedNode() ?: return
                 val actions = DefaultActionGroup().apply {
-                    listOf("Insert", "Run", "Edit", "Tags", "Delete").forEach { name ->
+                    listOf("Insert", "Edit").forEach { name ->
                         add(manager.getAction("com.aicode.commoncommands.$name"))
                     }
                 }
@@ -139,7 +139,7 @@ class CommonCommandsPanel(private val project: Project, private val service: Com
 
     private fun toolbar(): JComponent {
         val actions = DefaultActionGroup().apply {
-            listOf("Add", "Variables", "Json", "Refresh", "Expand", "Collapse").forEach { name ->
+            listOf("Add", "Json", "Refresh", "Expand", "Collapse").forEach { name ->
                 val id = "com.aicode.commoncommands.$name"
                 add(requireNotNull(ActionManager.getInstance().getAction(id)) { "Missing action: $id" })
             }
@@ -160,11 +160,7 @@ class CommonCommandsPanel(private val project: Project, private val service: Com
     fun hasSelection(): Boolean = selectedNode() != null
     fun addSelected() = addCommand()
     fun editSelected() { selectedNode()?.let(::edit) }
-    fun editTagsSelected() { selectedNode()?.let(::editTags) }
-    fun deleteSelected() { selectedNode()?.let(::delete) }
-    fun insertSelected() { selectedNode()?.let { run(it, false) } }
-    fun runSelected() { selectedNode()?.let { run(it, true) } }
-    fun editGlobalVariables() = editGlobals()
+    fun insertSelected() { selectedNode()?.let(::insert) }
     fun openRawJson() = openJson()
     fun expandAll() = expandAllTreeRows(tree)
     fun collapseAll() = collapseAllTreeRows(tree)
@@ -226,33 +222,14 @@ class CommonCommandsPanel(private val project: Project, private val service: Com
         change { service.updateCommand(node.index, command, expected) }
     }
 
-    private fun editTags(node: CommandNode) {
-        val input = Messages.showInputDialog(project, "Comma separated tags", "Edit Tags", null,
-            node.command.tags.joinToString(", "), null) ?: return
-        val expected = snapshot?.contents ?: return
-        change { service.updateCommand(node.index, node.command.copy(tags = input.split(',').map(String::trim).filter(String::isNotEmpty).distinct()), expected) }
-    }
-
-    private fun delete(node: CommandNode) {
-        if (Messages.showYesNoDialog(project, "Delete this JSON record?\n\n${node.command.command}", "Delete Common Command", null) != Messages.YES) return
-        val expected = snapshot?.contents ?: return
-        change { service.deleteCommand(node.index, expected) }
-    }
-
-    private fun editGlobals() {
-        val document = snapshot ?: return
-        val variables = CommonCommandVariablesUi.edit(document.variables, "Global Command Variables") ?: return
-        change { service.updateGlobalVariables(variables, document.contents) }
-    }
-
     private fun openJson() {
         val file = CommonCommandService.defaultConfigPath().toFile()
         val virtual = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(file) ?: return
         FileEditorManager.getInstance(project).openFile(virtual, true)
     }
 
-    private fun run(node: CommandNode, execute: Boolean) {
-        try { CommonCommandRunner.run(project, node.command, execute) }
+    private fun insert(node: CommandNode) {
+        try { CommonCommandRunner.insert(project, node.command) }
         catch (ex: Exception) { Messages.showErrorDialog(project, ex.message ?: "Could not use command", "Common Commands") }
     }
 

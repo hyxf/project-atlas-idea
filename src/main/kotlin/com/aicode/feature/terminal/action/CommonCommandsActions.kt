@@ -25,13 +25,9 @@ abstract class CommonCommandsAction(
 }
 
 class AddCommonCommandAction : CommonCommandsAction("Add Command", AllIcons.General.Add) { override fun perform(panel: CommonCommandsPanel) = panel.addSelected() }
-class ManageCommonCommandVariablesAction : CommonCommandsAction("Manage Global Variables", AllIcons.General.Settings) { override fun perform(panel: CommonCommandsPanel) = panel.editGlobalVariables() }
 class OpenCommonCommandsJsonAction : CommonCommandsAction("Edit commoncmd.json", AllIcons.Actions.Edit) { override fun perform(panel: CommonCommandsPanel) = panel.openRawJson() }
 class RefreshCommonCommandsAction : CommonCommandsAction("Refresh", AllIcons.Actions.Refresh) { override fun perform(panel: CommonCommandsPanel) = panel.refresh() }
 class ExpandCommonCommandsAction : CommonCommandsAction("Expand All", AllIcons.Actions.Expandall) { override fun perform(panel: CommonCommandsPanel) = panel.expandAll() }
 class CollapseCommonCommandsAction : CommonCommandsAction("Collapse All", AllIcons.Actions.Collapseall) { override fun perform(panel: CommonCommandsPanel) = panel.collapseAll() }
-class InsertCommonCommandAction : CommonCommandsAction("Insert into Terminal", AllIcons.Actions.Edit, true) { override fun perform(panel: CommonCommandsPanel) = panel.insertSelected() }
-class RunCommonCommandAction : CommonCommandsAction("Run Command", AllIcons.Actions.Execute, true) { override fun perform(panel: CommonCommandsPanel) = panel.runSelected() }
+class InsertCommonCommandAction : CommonCommandsAction("Insert into Terminal", AllIcons.Actions.Menu_paste, true) { override fun perform(panel: CommonCommandsPanel) = panel.insertSelected() }
 class EditCommonCommandAction : CommonCommandsAction("Edit Command", AllIcons.Actions.Edit, true) { override fun perform(panel: CommonCommandsPanel) = panel.editSelected() }
-class EditCommonCommandTagsAction : CommonCommandsAction("Edit Tags", AllIcons.General.Settings, true) { override fun perform(panel: CommonCommandsPanel) = panel.editTagsSelected() }
-class DeleteCommonCommandAction : CommonCommandsAction("Delete Command", AllIcons.General.Remove, true) { override fun perform(panel: CommonCommandsPanel) = panel.deleteSelected() }

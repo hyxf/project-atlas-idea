@@ -2,10 +2,8 @@ package com.aicode.feature.terminal.service
 
 import com.aicode.feature.terminal.model.CommonCommand
 import com.aicode.feature.terminal.model.CommonCommandDocument
-import com.aicode.feature.terminal.model.CommonCommandVariable
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonArray
-import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.intellij.openapi.application.ApplicationManager
@@ -67,12 +65,6 @@ class CommonCommandService(
         entries.set(index, raw)
     }
 
-    fun deleteCommand(index: Int, expected: String) = mutate(expected) { root ->
-        val entries = root.getAsJsonArray("commands")
-        require(index in 0 until entries.size()) { "Command no longer exists. Refresh the view." }
-        entries.remove(index)
-    }
-
     fun moveCommand(from: Int, to: Int, expected: String) = mutate(expected) { root ->
         val entries = root.getAsJsonArray("commands")
         require(from in 0 until entries.size() && to in 0 until entries.size()) { "Command no longer exists. Refresh the view." }
@@ -83,10 +75,6 @@ class CommonCommandService(
             if (index < entries.size()) reordered.add(entries[index])
         }
         root.add("commands", reordered)
-    }
-
-    fun updateGlobalVariables(variables: List<CommonCommandVariable>, expected: String) = mutate(expected) { root ->
-        if (variables.isEmpty()) root.remove("variables") else root.add("variables", variablesJson(variables, root.get("variables")))
     }
 
     fun saveCommands(commands: List<CommonCommand>, expected: String? = null) {
@@ -164,7 +152,6 @@ class CommonCommandService(
 
     private fun parse(contents: String): CommonCommandDocument {
         val root = parseRoot(contents)
-        val globals = parseVariables(root.get("variables"), "Global variables")
         val commands = root.getAsJsonArray("commands").mapIndexed { index, element ->
             require(element.isJsonObject) { "Common command ${index + 1} must be an object." }
             val item = element.asJsonObject
@@ -176,10 +163,9 @@ class CommonCommandService(
                 value.asJsonArray.map { require(it.isJsonPrimitive && it.asJsonPrimitive.isString); it.asString.trim() }
                     .filter(String::isNotBlank).distinct()
             } ?: emptyList()
-            CommonCommand(text.trim(), description.trim(), tags,
-                parseVariables(item.get("variables"), "Common command ${index + 1}"), item.deepCopy())
+            CommonCommand(text.trim(), description.trim(), tags, item.deepCopy())
         }
-        return CommonCommandDocument(commands, globals, contents)
+        return CommonCommandDocument(commands, contents)
     }
 
     private fun parseRoot(contents: String): JsonObject {
@@ -188,39 +174,6 @@ class CommonCommandService(
             "commoncmd.json must contain a commands array."
         }
         return root.asJsonObject
-    }
-
-    private fun parseVariables(value: JsonElement?, owner: String): List<CommonCommandVariable> {
-        if (value == null) return emptyList()
-        require(value.isJsonArray) { "$owner variables must be an array." }
-        val variables = value.asJsonArray.mapIndexed { index, element ->
-            require(element.isJsonObject) { "$owner variable ${index + 1} must be an object." }
-            val raw = element.asJsonObject
-            val name = string(raw, "name") ?: ""
-            require(NAME.matches(name)) { "$owner variable ${index + 1} has an invalid name." }
-            val type = string(raw, "type") ?: ""
-            require(type in TYPES) { "$owner variable $name has an invalid type." }
-            val label = string(raw, "label") ?: ""
-            val required = raw.get("required")?.let { require(it.isJsonPrimitive && it.asJsonPrimitive.isBoolean); it.asBoolean } ?: true
-            val options = strings(raw.get("options"), "$owner variable $name options") ?: emptyList()
-            require(type !in listOf("select", "multiSelect") || options.isNotEmpty()) { "$owner variable $name requires options." }
-            val pathKind = string(raw, "pathKind") ?: "any"
-            require(pathKind in listOf("file", "folder", "any") && (type == "path" || !raw.has("pathKind"))) { "$owner variable $name has an invalid pathKind." }
-            val default = raw.get("default")?.let {
-                if (type == "multiSelect") strings(it, "$owner variable $name default")!!
-                else { require(it.isJsonPrimitive && it.asJsonPrimitive.isString); listOf(it.asString) }
-            } ?: emptyList()
-            require(type !in listOf("select", "multiSelect") || default.all { it.isEmpty() || it in options }) { "$owner variable $name has a default that is not an option." }
-            CommonCommandVariable(name, type, label.trim(), required, default, options.distinct(), pathKind, raw.deepCopy())
-        }
-        require(variables.distinctBy { it.name }.size == variables.size) { "$owner has duplicate variable names." }
-        return variables
-    }
-
-    private fun strings(value: JsonElement?, label: String): List<String>? {
-        if (value == null) return null
-        require(value.isJsonArray) { "$label must be an array." }
-        return value.asJsonArray.map { require(it.isJsonPrimitive && it.asJsonPrimitive.isString) { "$label must contain strings." }; it.asString }
     }
 
     private fun string(root: JsonObject, key: String): String? = root.get(key)?.let {
@@ -235,31 +188,9 @@ class CommonCommandService(
         raw.addProperty("command", command.command.trim())
         if (command.description.isBlank()) raw.remove("description") else raw.addProperty("description", command.description.trim())
         if (command.tags.isEmpty()) raw.remove("tags") else raw.add("tags", JsonArray().apply { command.tags.map(String::trim).filter(String::isNotBlank).distinct().forEach(::add) })
-        if (command.variables.isEmpty()) raw.remove("variables") else raw.add("variables", variablesJson(command.variables, raw.get("variables")))
-    }
-
-    private fun variablesJson(variables: List<CommonCommandVariable>, existing: JsonElement?): JsonArray = JsonArray().apply {
-        variables.forEach { variable ->
-            val old = existing?.takeIf(JsonElement::isJsonArray)?.asJsonArray?.firstOrNull {
-                it.isJsonObject && it.asJsonObject.get("name")?.asString == variable.name
-            }?.asJsonObject
-            val raw = (old ?: variable.raw).deepCopy()
-            raw.addProperty("name", variable.name)
-            raw.addProperty("type", variable.type)
-            if (variable.label.isBlank()) raw.remove("label") else raw.addProperty("label", variable.label.trim())
-            raw.addProperty("required", variable.required)
-            if (variable.defaultValue.isEmpty()) raw.remove("default") else if (variable.type == "multiSelect") {
-                raw.add("default", JsonArray().apply { variable.defaultValue.forEach(::add) })
-            } else raw.addProperty("default", variable.defaultValue.first())
-            if (variable.options.isEmpty()) raw.remove("options") else raw.add("options", JsonArray().apply { variable.options.distinct().forEach(::add) })
-            if (variable.type == "path") raw.addProperty("pathKind", variable.pathKind) else raw.remove("pathKind")
-            add(raw)
-        }
     }
 
     companion object {
-        private val NAME = Regex("[A-Za-z_][A-Za-z0-9_]*")
-        private val TYPES = setOf("text", "select", "multiSelect", "path")
         fun getInstance(): CommonCommandService = ApplicationManager.getApplication().getService(CommonCommandService::class.java)
         fun defaultConfigPath(): Path = Path.of(System.getProperty("user.home"), ".project-atlas", "commoncmd.json")
     }

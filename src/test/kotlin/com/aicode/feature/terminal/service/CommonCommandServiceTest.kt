@@ -1,7 +1,6 @@
 package com.aicode.feature.terminal.service
 
 import com.aicode.feature.terminal.model.CommonCommand
-import com.aicode.feature.terminal.model.CommonCommandVariable
 import com.google.gson.JsonParser
 import java.nio.file.Files
 import java.util.Collections
@@ -41,10 +40,7 @@ class CommonCommandServiceTest {
         assertEquals("keep", entry.get("future").asString)
         assertEquals("yes", entry.getAsJsonArray("variables")[0].asJsonObject.get("vendor").asString)
         assertTrue(root.getAsJsonArray("variables")[0].asJsonObject.get("vendor").asBoolean)
-        val afterCommandEdit = service.read()
-        service.updateGlobalVariables(afterCommandEdit.variables.map { it.copy(label = "Branch") }, afterCommandEdit.contents)
-        val afterGlobalEdit = JsonParser.parseString(Files.readString(path)).asJsonObject
-        assertTrue(afterGlobalEdit.getAsJsonArray("variables")[0].asJsonObject.get("vendor").asBoolean)
+        assertTrue(root.getAsJsonArray("variables")[0].asJsonObject.get("vendor").asBoolean)
     }
 
     @Test fun `add edit delete and reorder mutate one raw record`() {
@@ -56,7 +52,8 @@ class CommonCommandServiceTest {
         service.moveCommand(2, 0, service.read().contents)
         assertEquals(listOf("three", "one", "two"), service.getCommands().map { it.command })
         service.updateCommand(1, CommonCommand("one edited"), service.read().contents)
-        service.deleteCommand(0, service.read().contents)
+        val afterEdit = service.read()
+        service.saveCommands(afterEdit.commands.drop(1), afterEdit.contents)
         assertEquals(listOf("one edited", "two"), service.getCommands().map { it.command })
         assertEquals(1, JsonParser.parseString(Files.readString(path)).asJsonObject.getAsJsonArray("commands")[0].asJsonObject.get("extra").asInt)
     }
@@ -134,46 +131,6 @@ class CommonCommandServiceTest {
             changed.set(CountDownLatch(1))
             Files.delete(path)
             assertTrue(changed.get().await(5, TimeUnit.SECONDS))
-        }
-    }
-}
-
-class CommonCommandResolverTest {
-    private val global = CommonCommandVariable("value", "text")
-
-    @Test fun `replaces declared references once and leaves undeclared references`() {
-        var calls = 0
-        val result = CommonCommandResolver.resolve(CommonCommand("echo \${value} \${value} \${other}"), listOf(global), "bash") {
-            calls++
-            listOf("a'b")
-        }
-        assertEquals(1, calls)
-        assertEquals("echo 'a'\\''b' 'a'\\''b' \${other}", result)
-    }
-
-    @Test fun `cancellation and conflicting names prevent resolution`() {
-        assertEquals(null, CommonCommandResolver.resolve(CommonCommand("echo \${value}"), listOf(global), "bash") { null })
-        assertThrows(IllegalArgumentException::class.java) {
-            CommonCommandResolver.resolve(CommonCommand("echo \${value}", variables = listOf(global)), listOf(global), "bash") { listOf("x") }
-        }
-    }
-
-    @Test fun `quotes all supported shells and rejects control characters`() {
-        assertEquals("'a'\\''b'", CommonCommandResolver.quote("a'b", "/bin/zsh"))
-        assertEquals("'a''b'", CommonCommandResolver.quote("a'b", "pwsh.exe"))
-        assertEquals("\"a^&b\"", CommonCommandResolver.quote("a&b", "cmd.exe"))
-        for (value in listOf("a\nb", "a\rb", "a\u0000b")) {
-            assertThrows(IllegalArgumentException::class.java) { CommonCommandResolver.quote(value, "bash") }
-        }
-    }
-
-    @Test fun `validates required and selected values`() {
-        val select = CommonCommandVariable("choice", "select", options = listOf("safe"))
-        assertThrows(IllegalArgumentException::class.java) {
-            CommonCommandResolver.resolve(CommonCommand("echo \${choice}"), listOf(select), "bash") { emptyList() }
-        }
-        assertThrows(IllegalArgumentException::class.java) {
-            CommonCommandResolver.resolve(CommonCommand("echo \${choice}"), listOf(select), "bash") { listOf("unexpected") }
         }
     }
 }

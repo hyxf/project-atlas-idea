@@ -12,5 +12,4 @@ object DefaultCommonCommands {
     fun missingFrom(commands: Collection<CommonCommand>): List<CommonCommand> =
         this.commands.filter { default -> commands.none { it.command == default.command } }
 
-    fun contains(command: CommonCommand): Boolean = commands.any { it.command == command.command }
 }

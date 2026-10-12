@@ -6,11 +6,10 @@ import com.intellij.ui.content.ContentFactory
 import javax.swing.JPanel
 
 class TerminalTextInserterTest : BasePlatformTestCase() {
-    fun testInsertionDoesNotExecuteAndRunSendsReturn() {
-        assertEquals("git status", TerminalTextInserter.payload("git status", false))
-        assertEquals("git status\n", TerminalTextInserter.payload("git status", true))
+    fun testInsertionDoesNotExecuteAndRejectsMultilineCommands() {
+        assertEquals("git status", TerminalTextInserter.payload("git status"))
         try {
-            TerminalTextInserter.payload("echo one\necho two", false)
+            TerminalTextInserter.payload("echo one\necho two")
             fail("Multiline insertion should be rejected")
         } catch (_: IllegalArgumentException) {
         }
