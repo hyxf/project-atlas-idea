@@ -1,0 +1,13 @@
+package com.aicode.feature.projectmanager.feature.project
+
+import java.nio.file.Path
+
+data class ProjectItem(
+    val id: String,
+    val name: String,
+    val path: Path,
+    val tags: Set<String> = emptySet(),
+    val favorite: Boolean = false,
+    val lastOpenedAt: Long? = null,
+)
+
