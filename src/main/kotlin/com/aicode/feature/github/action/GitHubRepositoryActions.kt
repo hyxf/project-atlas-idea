@@ -72,5 +72,16 @@ class OpenGitHubSettingsAction : GitHubRepositoryAction(
     override fun actionPerformed(e: AnActionEvent) = withPanel(e.project) { it.openSettingsFromAction() }
 }
 
+class PublishGitHubProjectAction : GitHubRepositoryAction(
+    "Publish Project to GitHub", "Create a private GitHub repository for the current project", AllIcons.Vcs.Push,
+) {
+    override fun update(e: AnActionEvent) {
+        super.update(e)
+        e.presentation.isEnabled = e.presentation.isEnabled && panel(e.project)?.isPublishing() != true
+    }
+
+    override fun actionPerformed(e: AnActionEvent) = withPanel(e.project) { it.publishFromAction() }
+}
+
 private fun ToolWindow.githubPanel(): GitHubRepositoriesPanel? =
     contentManager.contents.firstOrNull()?.component as? GitHubRepositoriesPanel

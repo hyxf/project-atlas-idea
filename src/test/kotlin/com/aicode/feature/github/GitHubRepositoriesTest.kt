@@ -7,6 +7,7 @@ import com.aicode.feature.github.persistence.RepositoryJsonStore
 import com.aicode.feature.github.persistence.SavedGitRepository
 import com.aicode.feature.github.service.CloneCancelledException
 import com.aicode.feature.github.service.GitHubApiClient
+import com.aicode.feature.github.service.GitHubCreateTransport
 import com.aicode.feature.github.service.GitHubHttpResponse
 import com.aicode.feature.github.service.GitHubRepositoriesService
 import com.aicode.feature.github.service.GitCloneService
@@ -30,6 +31,57 @@ import org.junit.rules.TemporaryFolder
 
 class GitHubRepositoriesTest {
     @Rule @JvmField val temporaryFolder = TemporaryFolder()
+
+    @Test
+    fun `publication lookup only treats repositories owned by configured user as conflicts`() {
+        val config = GitHubConfiguration("token", "atlas", false, "", "")
+        val client = GitHubApiClient { url, _ ->
+            if (url.endsWith("/user")) GitHubHttpResponse(200, mapOf("X-OAuth-Scopes" to listOf("repo")), """{"login":"atlas"}""")
+            else response(200, """[{"id":1,"name":"demo","full_name":"other/demo","owner":{"login":"other"},"html_url":"https://github.com/other/demo","ssh_url":"git@github.com:other/demo.git","clone_url":"https://github.com/other/demo.git","private":true,"archived":false,"fork":false,"updated_at":"now"}]""")
+        }
+        assertFalse(client.repositoryExists(config, "demo"))
+    }
+
+    @Test
+    fun `publication creation requires API returned private repository and preserves SSH address`() {
+        val config = GitHubConfiguration("token", "atlas", false, "", "")
+        val client = GitHubApiClient(
+            { _, _ -> response(200, """{"login":"atlas"}""") },
+            object : GitHubCreateTransport {
+                override fun create(configuration: GitHubConfiguration, name: String): GitHubHttpResponse {
+                    assertEquals("token", configuration.token)
+                    assertEquals("demo", name)
+                    return response(201, """{"id":7,"name":"demo","full_name":"atlas/demo","owner":{"login":"atlas"},"html_url":"https://github.com/atlas/demo","ssh_url":"ssh://git@github.com/atlas/demo.git","clone_url":"https://github.com/atlas/demo.git","private":true,"archived":false,"fork":false,"updated_at":"now"}""")
+                }
+            },
+        )
+        assertEquals("ssh://git@github.com/atlas/demo.git", client.createPrivateRepository(config, "demo").sshUrl)
+    }
+
+    @Test
+    fun `publication stops when repository lookup or creation fails`() {
+        val config = GitHubConfiguration("token", "atlas", false, "", "")
+        val lookup = GitHubApiClient { url, _ ->
+            if (url.endsWith("/user")) response(200, """{"login":"atlas"}""") else response(403, """{"message":"Forbidden"}""")
+        }
+        assertThrows(IllegalStateException::class.java) { lookup.repositoryExists(config, "demo") }
+        val create = GitHubApiClient(
+            { _, _ -> response(200, """{"login":"atlas"}""") },
+            object : GitHubCreateTransport {
+                override fun create(configuration: GitHubConfiguration, name: String) = response(422, """{"message":"name already exists"}""")
+            },
+        )
+        assertThrows(IllegalStateException::class.java) { create.createPrivateRepository(config, "demo") }
+    }
+
+    @Test
+    fun `publication lookup allows fine grained tokens when target is not visible`() {
+        val config = GitHubConfiguration("token", "atlas", false, "", "")
+        val client = GitHubApiClient { url, _ ->
+            if (url.endsWith("/user")) response(200, """{"login":"atlas"}""") else response(200, "[]")
+        }
+        assertFalse(client.repositoryExists(config, "demo"))
+    }
 
     @Test
     fun `reads legacy proxy field defaults and leaves an existing config untouched`() {

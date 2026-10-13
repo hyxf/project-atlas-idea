@@ -6,6 +6,9 @@ import com.aicode.feature.github.persistence.GitHubConfigurationStore
 import com.aicode.feature.github.persistence.SavedGitRepository
 import com.aicode.feature.github.service.CloneCancelledException
 import com.aicode.feature.github.service.GitHubRepositoriesService
+import com.aicode.feature.github.service.GitHubPublishService
+import com.aicode.feature.github.service.PublishFailure
+import com.aicode.feature.github.service.PublishPreparation
 import com.aicode.feature.github.service.groupRepositories
 import com.aicode.feature.projectmanager.feature.ui.ProjectUiSupport
 import com.aicode.feature.projectmanager.feature.ui.ProjectUiSupport.notify
@@ -25,6 +28,7 @@ import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.notification.NotificationAction
 import com.intellij.notification.NotificationGroupManager
@@ -52,6 +56,8 @@ class GitHubRepositoriesPanel(private val project: Project) : JPanel(BorderLayou
     private val tree = Tree()
     private val status = JBLabel("Cached repositories are shown here. Refresh to contact GitHub.")
     private val refreshing = AtomicBoolean(false)
+    private val publishing = AtomicBoolean(false)
+    private val publisher = GitHubPublishService(project)
     private var collapseLanguageGroups = false
     private var repositoryByNode = mutableMapOf<DefaultMutableTreeNode, GitHubRepository>()
     @Volatile private var cachedRepositories: List<GitHubRepository> = emptyList()
@@ -137,6 +143,7 @@ class GitHubRepositoriesPanel(private val project: Project) : JPanel(BorderLayou
                 "com.aicode.github.CollapseRepositories",
                 "com.aicode.github.OpenConfiguration",
                 "com.aicode.github.OpenSettings",
+                "com.aicode.github.PublishProject",
             ).forEach { id -> add(requireNotNull(ActionManager.getInstance().getAction(id)) { "Missing action: $id" }) }
         }
         val actionToolbar = ActionManager.getInstance()
@@ -207,6 +214,101 @@ class GitHubRepositoriesPanel(private val project: Project) : JPanel(BorderLayou
     fun collapseFromAction() = collapseAll()
     fun openConfigurationFromAction() = openConfig()
     fun openSettingsFromAction() = editSettings()
+    fun isPublishing(): Boolean = publishing.get()
+    fun publishFromAction() = preparePublish()
+
+    private fun preparePublish() {
+        if (!publishing.compareAndSet(false, true)) return
+        object : Task.Backgroundable(project, "Check GitHub Publication", false) {
+            override fun run(indicator: ProgressIndicator) {
+                try {
+                    indicator.text = "Checking the current project…"
+                    val path = project.basePath?.let(Path::of)
+                        ?: throw PublishFailure("Project selection", "The current IDEA project has no local path.")
+                    val prepared = try { publisher.prepare(path) }
+                        catch (failure: PublishFailure) { throw failure }
+                        catch (error: Exception) { throw PublishFailure("Local Git check", error.message ?: error.javaClass.simpleName) }
+                    indicator.text = "Checking the configured GitHub account…"
+                    val config = try { store.configuration() }
+                        catch (error: Exception) { throw PublishFailure("GitHub configuration", error.message ?: error.javaClass.simpleName) }
+                    val exists = try { publisher.targetExists(config, prepared.name) }
+                        catch (error: Exception) { throw PublishFailure("Repository lookup", error.message ?: error.javaClass.simpleName) }
+                    if (exists) {
+                        throw PublishFailure("Repository lookup", "${config.user}/${prepared.name} already exists. No local Git settings were changed.")
+                    }
+                    ApplicationManager.getApplication().invokeLater {
+                        if (project.isDisposed) { publishing.set(false); return@invokeLater }
+                        confirmPublish(prepared, config)
+                    }
+                } catch (error: Exception) {
+                    ApplicationManager.getApplication().invokeLater {
+                        publishing.set(false)
+                        if (!project.isDisposed) showPublishFailure(error)
+                    }
+                }
+            }
+        }.queue()
+    }
+
+    private fun confirmPublish(prepared: PublishPreparation, config: com.aicode.feature.github.model.GitHubConfiguration) {
+        val changes = if (prepared.existingGit) {
+            if (prepared.hasUncommittedChanges) "Yes; only existing commits will be pushed." else "No"
+        } else "Project files will be staged for an initial commit."
+        val sensitive = if (prepared.sensitivePaths.isEmpty()) "None detected by filename." else
+            "Review these possible sensitive files: ${prepared.sensitivePaths.joinToString(", ") { it.substringBefore(':') }}"
+        val detail = "Project: ${prepared.name}\nLocal path: ${prepared.path}\n" +
+            "GitHub owner: ${config.user}\nRepository: ${config.user}/${prepared.name}\nVisibility: Private\n" +
+            "Current branch: ${prepared.branch ?: "created by Git initialization"}\n" +
+            "Current commit: ${prepared.head ?: "none"}\nUncommitted changes: $changes\n" +
+            "$sensitive\n" +
+            "Git push uses SSH; an SSH key/agent with access to GitHub must be configured. The GitHub API token is not used for Git push.\n\n" +
+            if (prepared.existingGit) "Create repository, add origin, and push the current branch."
+            else "Initialize Git, stage project files, create an 'Initial commit', create repository, add origin, and push."
+        val choice = com.intellij.openapi.ui.Messages.showYesNoDialog(
+            project, detail, "Publish Project to GitHub", "Publish", "Cancel",
+            com.intellij.openapi.ui.Messages.getQuestionIcon(),
+        )
+        if (choice != com.intellij.openapi.ui.Messages.YES) { publishing.set(false); return }
+        object : Task.Backgroundable(project, "Publish Project to GitHub", false) {
+            override fun run(indicator: ProgressIndicator) {
+                try {
+                    val created = publisher.publish(prepared, config) { indicator.text = it }
+                    ApplicationManager.getApplication().invokeLater {
+                        publishing.set(false)
+                        if (!project.isDisposed) {
+                            status.text = "Published ${created.fullName}."
+                            notify(project, "Published ${created.fullName}: ${created.htmlUrl}", NotificationType.INFORMATION)
+                            refreshFromGitHub()
+                        }
+                    }
+                } catch (error: Exception) {
+                    ApplicationManager.getApplication().invokeLater {
+                        publishing.set(false)
+                        if (!project.isDisposed) showPublishFailure(error)
+                    }
+                }
+            }
+        }.queue()
+    }
+
+    private fun showPublishFailure(error: Exception) {
+        val failure = error as? PublishFailure
+        val created = failure?.repository
+        val recovery = when {
+            created != null -> "GitHub repository was created at ${created.htmlUrl}. Inspect origin in IDEA Git Remotes and verify SSH access, then use IDEA Push if needed. Automatic retry will stop while this name exists."
+            failure?.stage == "GitHub creation" -> "If this was a new Git project, its initial commit remains locally. Check GitHub for a repository that may have been created before retrying."
+            failure?.stage == "Initial staging" || failure?.stage == "Initial commit" ->
+                "Git may already be initialized and files may be staged. Review them in IDEA before retrying."
+            else -> "Review the project, GitHub token and account permissions, then run Publish again."
+        }
+        val message = if (failure?.stage == "Commit and branch check") {
+            error.message ?: "Check your local commit and branch, then publish again."
+        } else {
+            "${failure?.stage ?: "Publication check"} failed: ${error.message ?: error.javaClass.simpleName}\n$recovery"
+        }
+        status.text = "GitHub publication failed at ${failure?.stage ?: "publication check"}."
+        notify(project, StringUtil.escapeXmlEntities(message).replace("\n", "<br/>"), NotificationType.ERROR)
+    }
 
     private fun contextActions(repo: GitHubRepository) = DefaultActionGroup().apply {
         add(contextAction("Open on GitHub") { BrowserUtil.browse(repo.htmlUrl) })

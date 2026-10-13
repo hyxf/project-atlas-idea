@@ -333,6 +333,11 @@
                 text="GitHub Settings"
                 description="Edit GitHub token, user, and proxy settings"
                 icon="AllIcons.General.Settings"/>
+        <action id="com.aicode.github.PublishProject"
+                class="com.aicode.feature.github.action.PublishGitHubProjectAction"
+                text="Publish Project to GitHub"
+                description="Create a private GitHub repository and publish the current project"
+                icon="AllIcons.Vcs.Push"/>
     </actions>
 
     <projectListeners>

@@ -11,9 +11,53 @@ import java.net.HttpURLConnection
 
 data class GitHubHttpResponse(val status: Int, val headers: Map<String, List<String>>, val body: String)
 fun interface GitHubTransport { fun get(url: String, configuration: GitHubConfiguration): GitHubHttpResponse }
+interface GitHubCreateTransport {
+    fun create(configuration: GitHubConfiguration, name: String): GitHubHttpResponse
+}
 
-class GitHubApiClient(private val transport: GitHubTransport = JdkGitHubTransport()) {
-    fun repositories(configuration: GitHubConfiguration): List<GitHubRepository> {
+class GitHubApiClient(
+    private val transport: GitHubTransport = JdkGitHubTransport(),
+    private val createTransport: GitHubCreateTransport = JdkGitHubTransport(),
+) {
+    constructor(transport: GitHubTransport) : this(transport, JdkGitHubTransport())
+
+    fun repositoryExists(configuration: GitHubConfiguration, name: String): Boolean {
+        val listed = listRepositories(configuration, strict = true).any {
+            it.owner.equals(configuration.user, ignoreCase = true) && it.name.equals(name, ignoreCase = true)
+        }
+        // Fine-grained tokens do not expose classic OAuth scopes and may list only repositories
+        // they can access. This lookup prevents obvious conflicts; the create endpoint is the
+        // authoritative check when a token cannot see an existing repository.
+        return listed
+    }
+
+    fun createPrivateRepository(configuration: GitHubConfiguration, name: String): GitHubRepository {
+        require(name.isNotBlank()) { "Repository name is empty." }
+        // Verify the token still belongs to the selected personal account before the write.
+        val identity = transport.get("https://api.github.com/user", configuration)
+        requireSuccess(identity)
+        val login = parse(identity.body).asJsonObject.get("login")?.asString
+            ?: throw IllegalStateException("GitHub returned an unexpected user response.")
+        check(login.equals(configuration.user, ignoreCase = true)) {
+            "The configured GitHub user does not match the account for this token."
+        }
+        val response = createTransport.create(configuration, name)
+        if (response.status != 201) {
+            requireSuccess(response)
+            throw IllegalStateException("GitHub returned HTTP ${response.status} instead of 201 for repository creation.")
+        }
+        val repository = parseRepository(parse(response.body))
+            ?: throw IllegalStateException("GitHub created the repository but returned incomplete repository details. Check GitHub before retrying.")
+        check(repository.owner.equals(configuration.user, ignoreCase = true) &&
+            repository.name.equals(name, ignoreCase = true) && repository.private && repository.sshUrl.isNotBlank()) {
+            "GitHub created a repository but returned unexpected owner, name, visibility, or SSH URL. Check GitHub before retrying."
+        }
+        return repository
+    }
+    fun repositories(configuration: GitHubConfiguration): List<GitHubRepository> =
+        listRepositories(configuration, strict = false)
+
+    private fun listRepositories(configuration: GitHubConfiguration, strict: Boolean): List<GitHubRepository> {
         require(configuration.token.isNotBlank()) { "Set a non-empty token in github.json." }
         require(configuration.user.isNotBlank()) { "Set a non-empty user in github.json." }
         val identity = transport.get("https://api.github.com/user", configuration)
@@ -32,7 +76,13 @@ class GitHubApiClient(private val transport: GitHubTransport = JdkGitHubTranspor
             requireSuccess(response)
             val array = parse(response.body).takeIf(JsonElement::isJsonArray)?.asJsonArray
                 ?: throw IllegalStateException("GitHub returned an unexpected repository response.")
-            array.forEach { parseRepository(it)?.let(repositories::add) }
+            array.forEach { entry ->
+                val repository = parseRepository(entry)
+                if (repository == null && strict) {
+                    throw IllegalStateException("GitHub returned incomplete repository data; absence cannot be confirmed.")
+                }
+                repository?.let(repositories::add)
+            }
             next = response.headers.entries.firstOrNull { it.key.equals("Link", true) }?.value?.firstOrNull()
                 ?.let(::nextLink)
         }
@@ -42,7 +92,10 @@ class GitHubApiClient(private val transport: GitHubTransport = JdkGitHubTranspor
     private fun requireSuccess(response: GitHubHttpResponse) {
         if (response.status == 401) throw IllegalStateException("GitHub rejected the token. Check token in github.json.")
         if (response.status == 403) throw IllegalStateException("GitHub denied access. Check token permissions and rate limits.")
-        if (response.status !in 200..299) throw IllegalStateException("GitHub request failed with HTTP ${response.status}.")
+        if (response.status !in 200..299) {
+            val reason = runCatching { parse(response.body).asJsonObject.get("message")?.asString }.getOrNull()
+            throw IllegalStateException("GitHub request failed with HTTP ${response.status}${reason?.let { ": $it" } ?: "."}")
+        }
     }
 
     private fun nextLink(header: String): String? {
@@ -72,11 +125,24 @@ class GitHubApiClient(private val transport: GitHubTransport = JdkGitHubTranspor
     }.getOrNull()
 }
 
-private class JdkGitHubTransport : GitHubTransport {
+private class JdkGitHubTransport : GitHubTransport, GitHubCreateTransport {
     override fun get(url: String, configuration: GitHubConfiguration): GitHubHttpResponse {
+        return request(url, configuration, "GET")
+    }
+
+    override fun create(configuration: GitHubConfiguration, name: String): GitHubHttpResponse {
+        val body = com.google.gson.JsonObject().apply {
+            addProperty("name", name)
+            addProperty("private", true)
+            addProperty("auto_init", false)
+        }.toString()
+        return request("https://api.github.com/user/repos", configuration, "POST", body)
+    }
+
+    private fun request(url: String, configuration: GitHubConfiguration, method: String, body: String? = null): GitHubHttpResponse {
         val proxy = if (configuration.proxyEnabled) selectProxy(configuration) else Proxy.NO_PROXY
         val connection = URI(url).toURL().openConnection(proxy) as HttpURLConnection
-        connection.requestMethod = "GET"
+        connection.requestMethod = method
         connection.connectTimeout = TIMEOUT_MS
         connection.readTimeout = TIMEOUT_MS
         connection.setRequestProperty("Accept", "application/vnd.github+json")
@@ -84,11 +150,19 @@ private class JdkGitHubTransport : GitHubTransport {
         connection.setRequestProperty("User-Agent", "project-atlas-idea")
         connection.setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
         return try {
+            if (body != null) {
+                connection.doOutput = true
+                connection.setRequestProperty("Content-Type", "application/json")
+                connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            }
             val status = connection.responseCode
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
             val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-            val link = connection.getHeaderField("Link")
-            GitHubHttpResponse(status, if (link == null) emptyMap() else mapOf("Link" to listOf(link)), body)
+            val headers = buildMap {
+                connection.getHeaderField("Link")?.let { put("Link", listOf(it)) }
+                connection.getHeaderField("X-OAuth-Scopes")?.let { put("X-OAuth-Scopes", listOf(it)) }
+            }
+            GitHubHttpResponse(status, headers, body)
         } catch (error: java.net.SocketTimeoutException) {
             throw IllegalStateException("GitHub request timed out after 30 seconds. Check the network or proxy.", error)
         } catch (error: Exception) {
